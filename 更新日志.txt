@@ -1,3 +1,99 @@
+V0.0.5 更新日志 (2025-11-25)
+=================================
+
+【新功能】DeepSeek-OCR引擎集成 + 文档完善
+
+一、核心更新
+-----------
+1. 新增DeepSeek OCR引擎（硅基流动平台）
+   - 使用OpenAI兼容接口，easy接入
+   - 支持Free OCR模式，输出纯文本
+   - 智能文本清理功能，自动移除标记
+   - 当前限免测试，适合新技术评测
+
+2. 4引擎无缝切换
+   - GUI下拉菜单一键切换4种OCR引擎
+   - 引擎状态实时显示（就绪/未就绪）
+   - 后台异步初始化，互不影响
+
+3. 安全性增强
+   - 移除代码中的硬编码API密钥
+   - 支持环境变量配置（推荐）
+   - 添加.env.example配置示例
+   - 敏感文件已加入.gitignore
+
+4. 文档全面更新
+   - README.md完全重写（基于v0.0.4）
+   - 添加4种OCR引擎对比表格
+   - 详细的快速开始指南
+   - 完善的常见问题解答
+   - 环境变量配置说明
+
+二、技术实现
+-----------
+1. ocr_engine_deepseek.py（新增）
+   - 378行完整引擎实现
+   - _clean_ocr_result()智能文本清理
+   - 支持PIL Image → Base64转换
+   - 统一接口设计（与其他引擎一致）
+
+2. ocr_engine_manager.py（更新）
+   - 新增DEEPSEEK引擎类型
+   - 扩展引擎信息表
+   - 优化后台初始化顺序
+   - 智能可用性检测
+
+3. config.py（更新）
+   - 新增DeepSeek配置项
+   - 优化API密钥读取（环境变量优先）
+   - Free OCR模式提示词
+
+4. requirements.txt（更新）
+   - 新增openai>=1.0.0依赖
+
+三、文件修改
+-----------
+- 新增：ocr_engine_deepseek.py
+- 新增：.env.example
+- 更新：README.md（完全重写）
+- 更新：ocr_engine_manager.py
+- 更新：config.py
+- 更新：requirements.txt
+- 更新：更新日志.txt（本文件）
+
+四、使用指南
+-----------
+1. 获取DeepSeek API密钥
+   - 访问：https://cloud.siliconflow.cn/
+   - 注册并创建API密钥
+
+2. 配置方式（二选一）
+   方式1（推荐）：
+     export DEEPSEEK_API_KEY='sk-xxxxxx'
+   
+   方式2：
+     修改config.py中的DEEPSEEK_API_KEY
+
+3. 安装依赖
+   pip install openai
+
+4. 运行测试
+   python ocr_engine_deepseek.py
+
+五、已知优化
+-----------
+- DeepSeek OCR提示词优化为Free OCR模式
+- 智能清理<|ref|>和<|det|>标记
+- 纯文本输出，兼容性更好
+
+六、引擎状态
+-----------
+✅ PaddleOCR 3.x - 极高精度，本地运行
+✅ RapidOCR - 快速轻量，本地运行
+✅ 阿里云OCR - 高精度在线服务
+✅ DeepSeek OCR - 限免测试，在线服务
+
+
 V0.0.4 更新日志 (2025-11-22)
 =================================
 

@@ -1,238 +1,373 @@
 # 批量OCR识别图片PDF多区域内容重命名导出表格系统
 
-一个功能强大的批量OCR识别工具，支持图片和PDF文件的多区域识别、自动重命名和Excel导出。
+<div align="center">
 
-## 功能特点
+![Version](https://img.shields.io/badge/version-v0.0.4-blue)
+![Python](https://img.shields.io/badge/python-3.8+-brightgreen)
+![License](https://img.shields.io/badge/license-MIT-orange)
 
-- ✅ **批量处理** - 支持批量导入和处理多个文件
-- ✅ **多格式支持** - 支持PNG、JPG、BMP、GIF、TIFF、PDF等格式
-- ✅ **多区域识别** - 可在图片上框选多个区域分别识别
-- ✅ **自动重命名** - 根据识别结果自动重命名文件
-- ✅ **Excel导出** - 将所有识别结果导出为Excel表格
-- ✅ **可视化操作** - 直观的GUI界面，鼠标拖拽框选识别区域
-- ✅ **高精度识别** - 基于PaddleOCR引擎，支持中英文识别
+一个功能强大的批量OCR识别工具，支持**4种OCR引擎**、图片和PDF文件的多区域识别、自动重命名和Excel导出。
 
-## 安装依赖
+[功能特点](#功能特点) • [快速开始](#快速开始) • [OCR引擎](#ocr引擎对比) • [使用指南](#使用指南) • [配置说明](#配置说明)
 
-### 方法1：使用pip安装（推荐）
+</div>
 
+---
+
+## ✨ 功能特点
+
+### 核心功能
+- 🎯 **多引擎支持** - 集成4种OCR引擎，GUI一键切换
+- 📦 **批量处理** - 支持批量导入和处理多个文件
+- 🖼️ **多格式支持** - PNG、JPG、BMP、GIF、TIFF、PDF等
+- 🔲 **多区域识别** - 可视化框选，支持一张图片多个区域
+- ✏️ **自动重命名** - 根据识别结果智能重命名文件
+- 📊 **Excel导出** - 将所有识别结果导出为Excel表格
+- 🎨 **可视化操作** - 直观的Qt GUI界面，鼠标拖拽框选
+- ⚡ **按需加载** - 启动仅需1-2秒，OCR引擎后台异步初始化
+
+### 性能优化
+| 指标 | 优化前 | 优化后 | 改善 |
+|------|--------|--------|------|
+| 打包体积 | 800MB-1.5GB | 200-500MB | **↓ 60-75%** |
+| 启动时间 | 5-10秒 | 1-2秒 | **↑ 80%** |
+| 初始内存 | 500-800MB | 150-250MB | **↓ 70%** |
+
+---
+
+## 🚀 快速开始
+
+### 环境要求
+- Python 3.8 或更高版本
+- 操作系统：Windows / Linux / macOS
+
+### 安装步骤
+
+#### 1. 克隆仓库
+```bash
+git clone https://github.com/maodou7/OCR-System.git
+cd OCR-System
+```
+
+#### 2. 创建虚拟环境（推荐）
+```bash
+python -m venv .venv
+
+# Linux/macOS
+source .venv/bin/activate
+
+# Windows
+.venv\Scripts\activate
+```
+
+#### 3. 安装依赖
 ```bash
 pip install -r requirements.txt
 ```
 
-### 方法2：手动安装
+#### 4. 配置API密钥（可选）
 
+如果需要使用阿里云OCR或DeepSeek OCR，需要配置API密钥：
+
+**方式1：环境变量（推荐）**
 ```bash
-pip install paddleocr>=2.7.0
-pip install paddlepaddle>=2.5.0
-pip install Pillow>=10.0.0
-pip install openpyxl>=3.1.0
-pip install PyMuPDF>=1.23.0
-pip install numpy>=1.24.0
-pip install opencv-python>=4.8.0
+# Linux/macOS
+export ALIYUN_ACCESS_KEY_ID='your_aliyun_key_id'
+export ALIYUN_ACCESS_KEY_SECRET='your_aliyun_secret'
+export DEEPSEEK_API_KEY='your_deepseek_api_key'
+
+# Windows (PowerShell)
+$env:ALIYUN_ACCESS_KEY_ID='your_aliyun_key_id'
+$env:ALIYUN_ACCESS_KEY_SECRET='your_aliyun_secret'
+$env:DEEPSEEK_API_KEY='your_deepseek_api_key'
 ```
 
-## 使用说明
+**方式2：修改config.py**
+```python
+# 在 config.py 中找到以下配置并填写（仅本地使用，不要提交到Git）
+ALIYUN_ACCESS_KEY_ID = 'your_key_here'
+ALIYUN_ACCESS_KEY_SECRET = 'your_secret_here'
+DEEPSEEK_API_KEY = 'your_api_key_here'
+```
 
-### 启动程序
+> 💡 **提示**：如果只使用PaddleOCR或RapidOCR（本地引擎），可跳过API配置
 
+#### 5. 启动程序
 ```bash
-python main.py
+python qt_run.py
 ```
 
-或直接运行：
+---
 
-```bash
-python ocr_system.py
-```
+## 🔍 OCR引擎对比
 
-### 操作步骤
+本系统集成了**4种主流OCR引擎**，可在GUI中一键切换：
 
-1. **打开文件**
-   - 点击「📂 打开文件」按钮选择单个或多个文件
-   - 点击「📁 打开文件夹」按钮批量导入文件夹中的所有图片/PDF
+| 引擎 | 类型 | 速度 | 精度 | 成本 | 特点 |
+|------|------|------|------|------|------|
+| **PaddleOCR** | 本地 | ⚡⚡⚡ 快 | ⭐⭐⭐⭐⭐ 极高 | 免费 | 自动GPU/CPU切换，极高精度 |
+| **RapidOCR** | 本地 | ⚡⚡⚡ 快 | ⭐⭐⭐ 中 | 免费 | 轻量级，无需GPU |
+| **阿里云OCR** | 在线 | ⚡⚡ 中 | ⭐⭐⭐⭐ 高 | 付费 | 支持多种证件识别 |
+| **DeepSeek OCR** | 在线 | ⚡⚡⚡ 快 | ⭐⭐⭐⭐ 待测试 | 限免 | 硅基流动平台，当前限免 |
 
-2. **框选识别区域**
-   - 确保「多区域框编辑」复选框已勾选
-   - 在图片上按住鼠标左键拖拽，框选需要识别的区域
-   - 可以框选多个区域
-   - 右键点击区域可删除
+### 引擎选择建议
 
-3. **开始识别**
-   - 点击「🔍 开始识别」按钮
-   - 等待识别完成，结果会显示在底部文本框
+- **离线使用 / 高精度需求** → PaddleOCR（推荐）
+- **快速轻量 / 低配环境** → RapidOCR
+- **特殊证件识别** → 阿里云OCR
+- **测试新技术** → DeepSeek OCR
 
-4. **重命名文件**
-   - 识别完成后，点击「改名并下一张」按钮
-   - 程序会根据第一个区域的识别结果重命名文件
-   - 自动跳转到下一张图片
+---
 
-5. **导出Excel**
-   - 点击「💾 导出Excel」按钮
-   - 选择保存位置
-   - 所有识别结果将导出为Excel表格
+## 📖 使用指南
 
-### 快捷操作
+### 1. 启动程序并选择引擎
 
-- **双击文件列表**：快速切换到指定文件
-- **右键点击区域**：删除识别区域
-- **清空配置**：清除所有文件和识别记录
+![选择引擎](docs/images/engine-selection.png)
 
-## 文件结构
+在工具栏的"OCR引擎"下拉菜单中选择需要的引擎。
 
-```
-批量OCR识别系统/
-├── main.py              # 主启动脚本
-├── ocr_system.py        # GUI主程序
-├── ocr_engine.py        # OCR识别引擎封装
-├── utils.py             # 工具函数（文件处理、Excel导出）
-├── config.py            # 配置管理
-├── requirements.txt     # 依赖包列表
-└── README.md           # 说明文档
-```
+### 2. 打开文件
 
-## 技术栈
+- **单个/多个文件**：点击 `📂 打开文件`
+- **批量文件夹**：点击 `📁 打开文件夹`
 
-- **GUI框架**: PySide6 (Qt)
-- **OCR引擎**: 
-  - PaddleOCR (主要，优化版)
-  - 阿里云OCR (在线服务)
-  - RapidOCR (可选，快速轻量)
-- **图片处理**: Pillow (PIL)
-- **PDF处理**: PyMuPDF (按需导入)
-- **Excel导出**: openpyxl (按需导入)
-- **数值计算**: NumPy (按需导入)
+支持格式：PNG、JPG、JPEG、BMP、GIF、TIFF、TIF、PDF
 
-## 🚀 性能优化
+### 3. 框选识别区域
 
-本系统已采用**按需导入（Lazy Import）**策略，大幅优化性能：
+- 在图片上**按住鼠标左键拖拽**，框选需要识别的区域
+- 可以框选**多个区域**
+- **右键点击区域**可删除
+- 支持自动识别（无需框选）
 
-### 优化效果
+### 4. 开始识别
 
-| 指标 | 优化前 | 优化后 | 改善 |
-|------|--------|--------|------|
-| 打包体积 | 800MB-1.5GB | 200-500MB | **60-75%** ↓ |
-| 启动时间 | 5-10秒 | 1-2秒 | **80%** ↑ |
-| 初始内存 | 500-800MB | 150-250MB | **70%** ↓ |
+点击 `🔍 开始识别` 按钮，等待识别完成。
 
-### 优化原理
+识别结果会显示在底部文本框中。
 
-1. **重型库延迟加载**: PyMuPDF、openpyxl 等仅在使用时加载
-2. **OCR引擎按需初始化**: 后台异步加载，不阻塞UI启动
-3. **智能打包配置**: Nuitka仅打包必要模块
+### 5. 文件重命名（可选）
 
-详细说明请查看 [OPTIMIZATION.md](OPTIMIZATION.md)
+点击 `✏️ 改名并下一张`：
+- 程序会根据第一个区域的识别结果重命名文件
+- 自动跳转到下一张图片
+- 重名时自动添加序号
 
-## 打包发布
+### 6. 导出Excel
 
-### 使用 Nuitka 打包（推荐）
+点击 `💾 导出Excel`，选择保存位置。
 
-```bash
-# 安装 Nuitka
-pip install nuitka
+所有识别结果将导出为Excel表格，包含：
+- 文件名
+- 识别区域
+- 识别内容
+- 处理状态
 
-# 运行打包脚本
-python build_nuitka.py
-```
+---
 
-**打包特点**：
-- ✅ 体积小（200-500MB）
-- ✅ 启动快（1-2秒）
-- ✅ 采用按需导入优化
+## ⚙️ 配置说明
 
-### 打包配置选项
+### OCR引擎配置
 
-**方式1：轻量打包（默认）**
-- 体积最小
-- 启动最快
-- OCR引擎按需加载
+#### PaddleOCR（本地引擎，无需配置）
+自动GPU/CPU切换，支持中英文混合识别。
 
-**方式2：完整打包**
-- 修改 `build_nuitka.py`，包含所有OCR引擎
-- 体积较大但完全独立
-- 所有功能立即可用
+#### RapidOCR（本地引擎，无需配置）
+轻量级ONNX Runtime引擎，快速启动。
 
-## 配置说明
-
-### 基准值设置
-
-程序支持两个基准值的设置：
-- **实测基准值**：用于存储特定的基准数据
-- **较深计基准值**：用于存储另一组基准数据
-
-这些值可以在后续的数据处理中使用。
-
-### OCR配置
-
-在 `config.py` 中可以修改OCR相关配置：
+#### 阿里云OCR（需要API密钥）
+1. 访问 [阿里云OCR控制台](https://www.aliyun.com/product/ocr)
+2. 开通服务并创建AccessKey
+3. 在 `config.py` 或环境变量中配置密钥
 
 ```python
-OCR_USE_ANGLE_CLS = True  # 是否使用角度分类
-OCR_LANG = 'ch'          # 语言：ch=中文, en=英文
-OCR_SHOW_LOG = False     # 是否显示日志
+ALIYUN_ACCESS_KEY_ID = 'your_key_id'
+ALIYUN_ACCESS_KEY_SECRET = 'your_secret'
 ```
 
-## 注意事项
+#### DeepSeek OCR（需要API密钥）
+1. 访问 [硅基流动平台](https://cloud.siliconflow.cn/)
+2. 注册/登录并创建API密钥
+3. 在 `config.py` 或环境变量中配置密钥
 
-1. **首次运行**：首次运行时，PaddleOCR会自动下载模型文件，需要等待一段时间
-2. **图片质量**：识别效果受图片清晰度影响，建议使用高分辨率图片
-3. **区域框选**：框选区域时尽量贴合文字边缘，避免包含过多空白
-4. **文件命名**：自动重命名时会过滤掉非法字符，如遇重名会自动添加序号
-
-## 常见问题
-
-### Q: 提示"OCR引擎未就绪"怎么办？
-A: 请确保已正确安装PaddleOCR和PaddlePaddle：
-```bash
-pip install paddleocr paddlepaddle
+```python
+DEEPSEEK_API_KEY = 'sk-xxxxxx'
 ```
 
-### Q: 识别速度慢怎么办？
-A: 
-- 首次识别需要加载模型，会比较慢
-- 可以考虑安装GPU版本的PaddlePaddle以提升速度
-- 减小图片分辨率
+### 高级配置
 
-### Q: 识别准确率不高怎么办？
-A:
-- 确保图片清晰度足够
-- 框选区域时尽量精确
-- 避免框选模糊或倾斜的文字
+编辑 `config.py` 文件可自定义：
 
-### Q: 支持哪些图片格式？
-A: 支持 PNG、JPG、JPEG、BMP、GIF、TIFF、TIF 和 PDF 格式
+```python
+# OCR参数
+OCR_USE_ANGLE_CLS = True  # 角度分类（处理旋转文字）
+OCR_LANG = 'ch'           # 语言：ch=中英文, en=英文
+OCR_SHOW_LOG = False      # 显示详细日志
 
-## 更新日志
+# DeepSeek OCR Prompt
+DEEPSEEK_OCR_PROMPT = '<image>\nFree OCR.'  # Free OCR模式
+```
+
+---
+
+## 📁 项目结构
+
+```
+OCR-System/
+├── qt_run.py                   # 主启动脚本
+├── qt_run_silent.pyw           # 静默启动（无控制台）
+├── qt_main.py                  # GUI主程序
+├── config.py                   # 配置管理
+├── utils.py                    # 工具函数
+│
+├── ocr_engine_manager.py       # OCR引擎管理器
+├── ocr_engine_paddle.py        # PaddleOCR引擎
+├── ocr_engine_rapid.py         # RapidOCR引擎
+├── ocr_engine_aliyun_new.py    # 阿里云OCR引擎
+├── ocr_engine_deepseek.py      # DeepSeek OCR引擎
+│
+├── requirements.txt            # 依赖列表
+├── .env.example                # 环境变量示例
+├── .gitignore                  # Git忽略配置
+├── README.md                   # 本文档
+└── 更新日志.txt                # 版本更新记录
+```
+
+---
+
+## 🛠️ 技术栈
+
+- **GUI框架**: PySide6 (Qt 6.6+)
+- **OCR引擎**: 
+  - PaddleOCR 2.7+ / 3.x（智能版本适配）
+  - RapidOCR (ONNX Runtime)
+  - 阿里云OCR API 2021-07-07
+  - DeepSeek OCR（OpenAI兼容接口）
+- **图片处理**: Pillow 10.0+
+- **PDF处理**: PyMuPDF 1.23+（按需导入）
+- **Excel导出**: openpyxl 3.1+（按需导入）
+- **数值计算**: NumPy 1.24+（按需导入）
+
+---
+
+## 📝 更新日志
+
+### v0.0.4 (2025-11-25) - DeepSeek OCR集成
+- 🆕 **新增DeepSeek OCR引擎**（硅基流动平台）
+  - 使用OpenAI兼容接口
+  - 智能文本清理，提取纯文本
+  - Free OCR模式优化
+- ✨ 支持4种OCR引擎一键切换
+- 📄 完善的环境变量配置
+- 🔒 移除敏感信息，增强安全性
+
+### v0.0.3 (2025-11-21)
+- ✅ PaddleOCR 3.x完整适配
+- ✅ RapidOCR引擎实现
+- 🔧 智能版本检测和参数降级
 
 ### v0.02 (2025-01-21) - 性能优化版
-- 🚀 **重大优化**: 采用按需导入策略
-  - 打包体积减少 60-75%（从1.5GB降至200-500MB）
-  - 启动速度提升 80%（从5-10秒降至1-2秒）
-  - 初始内存占用降低 70%
-- ⚡ OCR引擎后台异步加载，不阻塞UI启动
-- 📦 优化Nuitka打包配置，智能按需包含模块
-- 🔧 重型库延迟导入（PyMuPDF、openpyxl、numpy）
-- 📝 新增详细优化文档 [OPTIMIZATION.md](OPTIMIZATION.md)
+- 🚀 采用按需导入策略
+- ⏱️ 启动速度提升80%
+- 💾 打包体积减少60-75%
+- 🧵 OCR引擎后台异步加载
 
 ### v0.01 (2025-11-20)
 - ✨ 初始版本发布
-- ✅ 支持多区域OCR识别
-- ✅ 支持批量处理
-- ✅ 支持自动重命名
-- ✅ 支持Excel导出
-- ✅ PySide6 (Qt) GUI界面
-- ✅ 多OCR引擎支持（PaddleOCR优化版、阿里云、RapidOCR）
+- ✅ 多区域OCR识别
+- ✅ PySide6 GUI界面
+- ✅ 多OCR引擎支持
 
-## 开发者信息
+---
 
-本系统基于Python开发，使用了以下开源项目：
-- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) - OCR识别引擎
-- [Tkinter](https://docs.python.org/3/library/tkinter.html) - GUI框架
+## ❓ 常见问题
 
-## 许可证
+### Q1: 提示"OCR引擎未就绪"？
+**A:** 确保已安装相应引擎的依赖：
+```bash
+# PaddleOCR
+pip install paddleocr paddlepaddle
 
-本项目仅供学习和研究使用。
+# RapidOCR
+pip install rapidocr-onnxruntime
 
-## 技术支持
+# DeepSeek OCR
+pip install openai
+```
 
-如有问题或建议，欢迎反馈。
+### Q2: DeepSeek OCR返回带标记的文本？
+**A:** 系统已自动清理。如仍有问题，检查 `config.py` 中的Prompt设置：
+```python
+DEEPSEEK_OCR_PROMPT = '<image>\nFree OCR.'  # 确保使用Free OCR模式
+```
+
+### Q3: 识别速度慢？
+**A:** 
+- **首次加载较慢**：模型初始化需要时间，后续会快
+- **切换到GPU**：安装GPU版PaddlePaddle
+- **使用RapidOCR**：更快但精度稍低
+
+### Q4: 如何提高识别准确率？
+**A:**
+- 使用高分辨率图片
+- 框选区域尽量精确，贴合文字边缘
+- 优先选择PaddleOCR引擎（最高精度）
+- 避免框选模糊、倾斜的文字
+
+### Q5: 支持哪些图片格式？
+**A:** PNG、JPG、JPEG、BMP、GIF、TIFF、TIF、PDF
+
+---
+
+## 🤝 贡献指南
+
+欢迎提交Issue和Pull Request！
+
+### 提交Issue
+- Bug报告：请提供错误信息、操作步骤、系统环境
+- 功能建议：描述需求场景和期望效果
+
+### 提交PR
+1. Fork本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启Pull Request
+
+---
+
+## 📄 许可证
+
+本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
+
+---
+
+## 🙏 致谢
+
+本项目使用了以下优秀的开源项目：
+
+- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) - 百度飞桨OCR框架
+- [RapidOCR](https://github.com/RapidAI/RapidOCR) - 快速OCR引擎
+- [PySide6](https://www.qt.io/qt-for-python) - Qt for Python
+- [OpenAI Python SDK](https://github.com/openai/openai-python) - API接口库
+
+特别感谢硅基流动平台提供的DeepSeek OCR限免服务！
+
+---
+
+## 📧 联系方式
+
+- GitHub: [@maodou7](https://github.com/maodou7)
+- 项目地址: [OCR-System](https://github.com/maodou7/OCR-System)
+- 问题反馈: [Issues](https://github.com/maodou7/OCR-System/issues)
+
+---
+
+<div align="center">
+
+**⭐ 如果这个项目对你有帮助，请给个Star！⭐**
+
+Made with ❤️ by maodou7
+
+</div>
