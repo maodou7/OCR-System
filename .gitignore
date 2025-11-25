@@ -57,7 +57,7 @@ output/*.xlsx
 *.pdf_cache
 
 # 配置文件（如果包含敏感信息）
-# config.py  # 如果要忽略整个config.py
+config.py  # 忽略包含密钥的配置文件
 # 或者只忽略包含密钥的配置副本
 config_local.py
 *_secret.py

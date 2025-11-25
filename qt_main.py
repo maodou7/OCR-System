@@ -128,11 +128,51 @@ class RectSelectionLabel(QLabel):
         if not self._pix:
             return
         painter = QPainter(self)
-        pen = QPen(Qt.red, 2, Qt.SolidLine)
-        painter.setPen(pen)
+        
         # 绘制已存在的矩形
-        for r in self._rects:
+        for idx, r in enumerate(self._rects):
+            # 设置框的颜色（第1个框用红色，其他用绿色）
+            if idx == 0:
+                pen = QPen(Qt.red, 3, Qt.SolidLine)  # 第1个框：红色粗线（重命名用）
+            else:
+                pen = QPen(Qt.green, 2, Qt.SolidLine)  # 其他框：绿色
+            painter.setPen(pen)
             painter.drawRect(r)
+            
+            # 绘制序号标签
+            label_text = str(idx + 1)
+            
+            # 设置字体和颜色
+            from PySide6.QtGui import QFont, QBrush, QColor
+            font = QFont()
+            font.setPointSize(14)
+            font.setBold(True)
+            painter.setFont(font)
+            
+            # 第1个框用红色字体，其他用白色字体
+            if idx == 0:
+                text_color = QColor(255, 0, 0)  # 红色
+                bg_color = QColor(255, 255, 0, 200)  # 黄色半透明背景
+            else:
+                text_color = QColor(255, 255, 255)  # 白色
+                bg_color = QColor(0, 128, 0, 200)  # 绿色半透明背景
+            
+            # 计算文本位置（左上角）
+            text_x = r.x() + 5
+            text_y = r.y() + 20
+            
+            # 绘制背景矩形
+            metrics = painter.fontMetrics()
+            text_width = metrics.horizontalAdvance(label_text)
+            text_height = metrics.height()
+            bg_rect = QRect(text_x - 3, text_y - text_height + 3, text_width + 6, text_height + 2)
+            
+            painter.fillRect(bg_rect, QBrush(bg_color))
+            
+            # 绘制序号文本
+            painter.setPen(text_color)
+            painter.drawText(text_x, text_y, label_text)
+        
         # 绘制正在框选的矩形
         if self._rubber_rect:
             pen = QPen(Qt.blue, 2, Qt.DashLine)
