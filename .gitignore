@@ -1,0 +1,137 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.whl
+
+# 虚拟环境
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+
+# IDE 和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OCR 相关
+# 测试图片（如果不想提交测试图片）
+test_*.png
+test_*.jpg
+test_*.jpeg
+quick_test.png
+
+# 临时文件
+*.log
+*.tmp
+*.temp
+*.bak
+*.cache
+
+# Excel 导出结果（可选，看是否需要提交结果文件）
+*结果*.xlsx
+ocr_results*.xlsx
+output/*.xlsx
+
+# PDF 临时文件
+*.pdf_cache
+
+# 配置文件（如果包含敏感信息）
+# config.py  # 如果要忽略整个config.py
+# 或者只忽略包含密钥的配置副本
+config_local.py
+*_secret.py
+.env
+.env.local
+
+# 用户数据目录
+.ocr_system/
+user_data/
+
+# Windows
+desktop.ini
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 打包文件
+*.spec
+*.manifest
+
+# 批处理和脚本（临时）
+一键*.bat
+删除*.bat
+删除*.py
+清理*.bat
+需要删除*.txt
+
+# 文档（临时生成的）
+ALIYUN_*.md
+*_SUMMARY.md
+*集成完成*.md
+*修复*.md
+*优化*.md
+BUG_*.md
+UI_*.md
+QUICK_START.md
+IMPLEMENTATION_*.md
+ENGINE_*.md
+INTEGRATION_*.md
+
+# 旧版和示例文件
+example_*.py
+test_*.py
+*示例*.py
+*测试*.py
+ocr_engine.py
+ocr_engine_new.py
+ocr_engine_aliyun.py
+ocr_engine_easyocr.py
+# ocr_engine_rapid.py  # 已恢复使用
+ocr_system.py
+main.py
+screenshot_tool.py
+
+# 参考项目
+Umi-OCR-main/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# PyInstaller
+*.spec
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# 压缩文件
+*.zip
+*.rar
+*.7z
+*.tar.gz
