@@ -260,9 +260,6 @@ class MainWindow(QMainWindow):
         self._ocr_initialized = False
         self._ocr_worker = None  # 后台初始化线程
         self._ocr_tasks = []     # OCR识别任务列表（防止线程被垃圾回收）
-        
-        # Excel导出选项
-        self.append_mode_checkbox = None  # 追加模式勾选框（在_init_ui中初始化）
 
         # UI
         self._init_ui()
@@ -295,11 +292,6 @@ class MainWindow(QMainWindow):
         act_export = QAction("💾 导出Excel", self)
         act_export.triggered.connect(self.export_excel)
         tb.addAction(act_export)
-        
-        # 添加追加模式勾选框
-        self.append_mode_checkbox = QCheckBox("追加模式")
-        self.append_mode_checkbox.setToolTip("勾选后将数据追加到现有Excel文件，否则创建新文件（自动避免重名）")
-        tb.addWidget(self.append_mode_checkbox)
         
         # 添加分隔符
         tb.addSeparator()
@@ -736,12 +728,46 @@ class MainWindow(QMainWindow):
         if not self.files:
             QMessageBox.information(self, "提示", "没有数据可导出。")
             return
-        save_path, _ = QFileDialog.getSaveFileName(self, "保存为Excel", str(Path.cwd() / "ocr结果.xlsx"), "Excel (*.xlsx)")
-        if not save_path:
+        
+        # 第一步：让用户选择导出模式
+        reply = QMessageBox.question(
+            self,
+            "选择导出模式",
+            "请选择Excel导出方式：\n\n"
+            "• 追加模式：将数据追加到已有Excel文件\n"
+            "• 新建模式：创建新的Excel文件（如文件存在则自动重命名）\n",
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+            QMessageBox.Yes
+        )
+        
+        # 用户取消
+        if reply == QMessageBox.Cancel:
             return
         
-        # 获取追加模式状态
-        append_mode = self.append_mode_checkbox.isChecked()
+        # 根据用户选择确定模式
+        append_mode = (reply == QMessageBox.Yes)
+        
+        # 第二步：根据模式选择文件
+        if append_mode:
+            # 追加模式：选择已存在的Excel文件
+            save_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "选择要追加的Excel文件",
+                str(Path.cwd()),
+                "Excel文件 (*.xlsx)"
+            )
+            if not save_path:
+                return
+        else:
+            # 新建模式：保存新文件
+            save_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "保存为新Excel文件",
+                str(Path.cwd() / "ocr结果.xlsx"),
+                "Excel文件 (*.xlsx)"
+            )
+            if not save_path:
+                return
         
         # 汇总结果
         results = {}
