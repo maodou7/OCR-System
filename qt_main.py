@@ -518,8 +518,9 @@ class MainWindow(QMainWindow):
             info = self.ocr_manager.get_current_engine_info()
             status = "✓ 就绪" if info['is_ready'] else "✗ 未就绪"
             color = "green" if info['is_ready'] else "red"
+            engine_mode = "在线" if info['is_online'] else "本地"
             engine_name = info['name']
-            self.engine_status_label.setText(f"引擎: {engine_name} {status}")
+            self.engine_status_label.setText(f"引擎: [{engine_mode}] {engine_name} {status}")
             self.engine_status_label.setStyleSheet(f"color: {color}; font-weight: bold;")
         else:
             self.engine_status_label.setText("引擎: 未初始化")

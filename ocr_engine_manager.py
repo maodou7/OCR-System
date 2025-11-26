@@ -31,11 +31,12 @@ class EngineType(Enum):
 class EngineInfo:
     """引擎信息类"""
     
-    def __init__(self, name: str, description: str, speed: str, accuracy: str, available: bool):
+    def __init__(self, name: str, description: str, speed: str, accuracy: str, is_online: bool, available: bool):
         self.name = name
         self.description = description
         self.speed = speed  # 快/中/慢
         self.accuracy = accuracy  # 高/中/低
+        self.is_online = is_online  # True=在线服务, False=本地运行
         self.available = available
 
 
@@ -52,6 +53,7 @@ class OCREngineManager:
             "阿里云在线OCR服务，支持多种特殊证件识别",
             "中",
             "高",
+            True,   # 在线服务
             True
         ),
         EngineType.PADDLE: EngineInfo(
@@ -59,6 +61,7 @@ class OCREngineManager:
             "百度飞桨OCR框架-高性能优化版，适合复杂场景（文字/数字/符号/时间）",
             "快",
             "极高",
+            False,  # 本地运行
             False  # 根据实际安装情况
         ),
         EngineType.RAPID: EngineInfo(
@@ -66,6 +69,7 @@ class OCREngineManager:
             "快速轻量级OCR引擎",
             "快",
             "中",
+            False,  # 本地运行
             False  # 根据实际安装情况
         ),
         EngineType.DEEPSEEK: EngineInfo(
@@ -73,6 +77,7 @@ class OCREngineManager:
             "硅基流动DeepSeek-OCR服务（当前限免测试）",
             "快",
             "待测试",
+            True,   # 在线服务
             False  # 根据实际安装情况
         ),
     }
@@ -233,9 +238,10 @@ class OCREngineManager:
         self.current_engine_type = engine
         
         info = self.ENGINE_INFO[engine]
+        engine_mode = "在线服务" if info.is_online else "本地运行"
         print(f"✓ 已切换到 {info.name}")
         print(f"  - 描述: {info.description}")
-        print(f"  - 速度: {info.speed} | 精度: {info.accuracy}")
+        print(f"  - 运行模式: {engine_mode}")
         
         return True
     
@@ -376,6 +382,7 @@ class OCREngineManager:
             'description': info.description,
             'speed': info.speed,
             'accuracy': info.accuracy,
+            'is_online': info.is_online,
             'available': info.available,
             'is_ready': self.is_ready()
         }
