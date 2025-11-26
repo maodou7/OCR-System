@@ -326,9 +326,10 @@ class MainWindow(QMainWindow):
         self.image_label.rect_finished.connect(self.on_rect_finished)
         self.image_label.rect_removed.connect(self.on_rect_removed)
 
-        left_v.addWidget(QLabel("识别结果:"))
+        left_v.addWidget(QLabel("识别结果（可编辑）:"))
         self.result_text = QTextEdit()
-        self.result_text.setReadOnly(True)
+        self.result_text.setPlaceholderText("OCR识别结果将显示在此，支持手动编辑修正...")
+        self.result_text.textChanged.connect(self.on_result_text_changed)
         left_v.addWidget(self.result_text, stretch=0)
 
         # 右侧：文件表
@@ -653,6 +654,25 @@ class MainWindow(QMainWindow):
         if not text:
             text = "(空)"
         self.result_text.append(text)
+    
+    def on_result_text_changed(self):
+        """
+        文本框内容变化时，同步到区域对象
+        将文本框的每一行对应到各个区域
+        """
+        if not self.rects:
+            return
+        
+        # 获取文本框内容并按行分割
+        text_content = self.result_text.toPlainText()
+        lines = text_content.split('\n')
+        
+        # 将每行同步到对应的区域
+        for i, rect in enumerate(self.rects):
+            if i < len(lines):
+                rect.text = lines[i]
+            else:
+                rect.text = ""  # 如果行数不足，设为空
 
     def start_ocr_current(self):
         if not self.cur_pil:
@@ -696,12 +716,22 @@ class MainWindow(QMainWindow):
     def rename_and_next(self):
         if self.cur_index < 0 or self.cur_index >= len(self.files):
             return
-        if not self.rects or not (self.rects[0].text or "").strip():
+        
+        # 获取文本框内容（支持用户编辑后的内容）
+        text_content = self.result_text.toPlainText().strip()
+        if not text_content:
             QMessageBox.information(self, "提示", "没有可用于重命名的识别结果。")
             return
+        
+        # 使用第一行作为文件名（如果有多行）
+        first_line = text_content.split('\n')[0].strip()
+        if not first_line:
+            QMessageBox.information(self, "提示", "识别结果为空，无法重命名。")
+            return
+        
         src = self.files[self.cur_index]
         directory = str(Path(src).parent)
-        base = FileUtils.clean_filename(self.rects[0].text.strip())
+        base = FileUtils.clean_filename(first_line)
         ext = Path(src).suffix
         dst = FileUtils.get_unique_filename(directory, base, ext)
         try:
