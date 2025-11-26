@@ -154,20 +154,15 @@ class OCREngineManager:
         except ImportError:
             pass
         
-        # 检查PaddleOCR（使用优化版引擎）
-        try:
-            from paddleocr import PaddleOCR
-            import numpy as np
+        # 检查 PaddleOCR-json（C++ 引擎）
+        paddle_exe = os.path.join(os.path.dirname(__file__), "models", "PaddleOCR-json", "PaddleOCR-json_v1.4.1", "PaddleOCR-json.exe")
+        if os.path.exists(paddle_exe):
             OCREngineManager.ENGINE_INFO[EngineType.PADDLE].available = True
-        except ImportError:
-            pass
         
-        # 检查RapidOCR
-        try:
-            from rapidocr_onnxruntime import RapidOCR
+        # 检查 RapidOCR-json（C++ 引擎）
+        rapid_exe = os.path.join(os.path.dirname(__file__), "models", "RapidOCR-json", "RapidOCR-json_v0.2.0", "RapidOCR-json.exe")
+        if os.path.exists(rapid_exe):
             OCREngineManager.ENGINE_INFO[EngineType.RAPID].available = True
-        except ImportError:
-            pass
         
         # 检查DeepSeek OCR（检查SDK和API Key配置）
         try:
