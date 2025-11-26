@@ -10,13 +10,18 @@ V1.3.0 更新日志 (2025-11-26)
    - 基于 hiroi-sora/PaddleOCR-json 项目
    - 版本：v1.4.1
 
-2. 性能大幅提升
+2. RapidOCR 引擎全面升级 🆕
+   - 替换原 Python 版 RapidOCR 为 C++ 版 RapidOCR-json
+   - 基于 hiroi-sora/RapidOCR-json 项目
+   - 版本：v0.2.0
+
+3. 性能大幅提升
    - 识别速度：提升 3-5 倍
    - 内存占用：降低 50%+
    - 启动速度：更快的引擎初始化
    - 稳定性：C++ 进程隔离，更稳定
 
-3. 跨平台支持
+4. 跨平台支持
    - Windows：原生运行 .exe
    - Linux：通过 Wine 运行（自动检测和配置）
    - 自动创建 Wine 包装脚本
@@ -29,15 +34,21 @@ V1.3.0 更新日志 (2025-11-26)
    - 支持临时文件和 Base64 识别
    - 自动 Wine 包装（Linux）
 
-2. ocr_engine_manager.py（更新）
-   - 更新引擎信息
-   - 名称：PaddleOCR-json (高性能C++)
-   - 速度：极快
-   - 精度：极高
+2. ocr_engine_rapid.py（完全重写）🆕
+   - 同样使用 PPOCR_api.py（通用 API）
+   - 管道模式通信
+   - 基于 ONNX Runtime
+   - 自动 Wine 包装（Linux）
 
-3. 新增文件
-   - PPOCR_api.py：官方 Python API
+3. ocr_engine_manager.py（更新）
+   - 更新两个引擎信息
+   - PaddleOCR-json：速度极快、精度极高
+   - RapidOCR-json：速度极快、精度中等、轻量级
+
+4. 新增文件
+   - PPOCR_api.py：官方 Python API（兼容两个引擎）
    - PaddleOCR-json.exe：C++ 引擎可执行文件
+   - RapidOCR-json.exe：C++ 引擎可执行文件
    - models/：识别模型文件
 
 三、引擎特性对比
