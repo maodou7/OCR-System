@@ -281,10 +281,6 @@ class MainWindow(QMainWindow):
         act_open_folder.triggered.connect(self.open_folder)
         tb.addAction(act_open_folder)
 
-        act_ocr = QAction("🔍 开始识别", self)
-        act_ocr.triggered.connect(self.start_ocr_current)
-        tb.addAction(act_ocr)
-
         act_rename_next = QAction("✏️ 改名并下一张", self)
         act_rename_next.triggered.connect(self.rename_and_next)
         tb.addAction(act_rename_next)
