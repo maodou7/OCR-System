@@ -195,6 +195,22 @@ class ExcelExporter:
     """Excel导出工具类"""
     
     @staticmethod
+    def _normalize_text(text):
+        """
+        规范化文本：将多行文本合并为一行
+        :param text: 原始文本
+        :return: 规范化后的文本
+        """
+        if not text or not isinstance(text, str):
+            return text
+        
+        # 将换行符替换为空格
+        text = text.replace('\n', ' ').replace('\r', ' ')
+        # 去除多余的空格
+        text = ' '.join(text.split())
+        return text
+    
+    @staticmethod
     def load_existing_data(file_path):
         """
         读取现有Excel文件的数据
@@ -326,6 +342,11 @@ class ExcelExporter:
                 for idx, row_data in enumerate(existing_data_rows, 1):
                     original_len = len(row_data)
                     
+                    # 规范化区域列的文本（从第6列开始是区域数据）
+                    fixed_columns = 5  # 前5列：序号、文件名、路径、时间、状态
+                    for i in range(fixed_columns, len(row_data)):
+                        row_data[i] = ExcelExporter._normalize_text(row_data[i])
+                    
                     # 补齐区域列（如果新数据有更多区域）
                     while len(row_data) < len(headers):
                         row_data.append("")
@@ -361,7 +382,10 @@ class ExcelExporter:
                 # 添加各区域识别文本
                 rects = result.get("rects", [])
                 for rect in rects:
-                    row_data.append(rect.text if hasattr(rect, 'text') else "")
+                    text = rect.text if hasattr(rect, 'text') else ""
+                    # 规范化文本：将多行文本合并为一行，提升Excel可读性
+                    text = ExcelExporter._normalize_text(text) if text else ""
+                    row_data.append(text)
                 
                 # 调试：显示第一行新数据的区域数量
                 if first_new_row:

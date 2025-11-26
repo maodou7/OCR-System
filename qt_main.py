@@ -651,8 +651,18 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"已删除区域 {index + 1}")
 
     def append_result(self, text: str):
+        """
+        添加识别结果到文本框
+        将多行文本合并为一行显示，提升可读性
+        """
         if not text:
             text = "(空)"
+        else:
+            # 将多行文本合并为一行，用空格连接
+            text = text.replace('\n', ' ').replace('\r', ' ')
+            # 去除多余的空格
+            text = ' '.join(text.split())
+        
         self.result_text.append(text)
     
     def on_result_text_changed(self):
