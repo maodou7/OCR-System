@@ -289,6 +289,10 @@ class ExcelExporter:
             # 计算全局最大区域数量
             max_rects = max(max_existing_rects, max_new_rects)
             
+            # 调试信息
+            if append_mode:
+                print(f"[Excel追加] 旧数据区域数: {max_existing_rects}, 新数据区域数: {max_new_rects}, 最终区域数: {max_rects}")
+            
             # 创建工作簿
             wb = openpyxl.Workbook()
             ws = wb.active
@@ -318,17 +322,33 @@ class ExcelExporter:
             
             # 先写入现有数据（如果是追加模式）
             if existing_data_rows:
-                for row_data in existing_data_rows:
+                print(f"[Excel追加] 开始写入 {len(existing_data_rows)} 行旧数据")
+                for idx, row_data in enumerate(existing_data_rows, 1):
+                    original_len = len(row_data)
+                    
                     # 补齐区域列（如果新数据有更多区域）
                     while len(row_data) < len(headers):
                         row_data.append("")
-                    ws.append(row_data[:len(headers)])  # 确保不超过表头列数
+                    
+                    # 截断多余的列（如果旧数据列数超过新表头）
+                    if len(row_data) > len(headers):
+                        row_data = row_data[:len(headers)]
+                    
+                    ws.append(row_data)
+                    
+                    # 调试：显示第一行的处理情况
+                    if idx == 1:
+                        print(f"[Excel追加] 第1行旧数据: 原长度={original_len}, 补齐后={len(row_data)}, 表头列数={len(headers)}")
                     
                     # 设置边框
                     for cell in ws[ws.max_row]:
                         cell.border = border
+                
+                print(f"[Excel追加] 旧数据写入完成")
             
             # 填充新数据
+            print(f"[Excel追加] 开始写入 {len(ocr_results)} 行新数据")
+            first_new_row = True
             for idx, (file_path, result) in enumerate(ocr_results.items(), start_index):
                 row_data = [
                     idx,
@@ -343,6 +363,11 @@ class ExcelExporter:
                 for rect in rects:
                     row_data.append(rect.text if hasattr(rect, 'text') else "")
                 
+                # 调试：显示第一行新数据的区域数量
+                if first_new_row:
+                    print(f"[Excel追加] 第1行新数据: 区域数={len(rects)}, 数据列数={len(row_data)-5}")
+                    first_new_row = False
+                
                 # 补齐区域列
                 while len(row_data) < len(headers):
                     row_data.append("")
@@ -352,6 +377,8 @@ class ExcelExporter:
                 # 设置边框
                 for cell in ws[ws.max_row]:
                     cell.border = border
+            
+            print(f"[Excel追加] 新数据写入完成")
             
             # 自动调整列宽
             for column in ws.columns:
