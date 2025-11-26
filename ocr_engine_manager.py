@@ -57,9 +57,9 @@ class OCREngineManager:
             True
         ),
         EngineType.PADDLE: EngineInfo(
-            "PaddleOCR (优化版)",
-            "百度飞桨OCR框架-高性能优化版，适合复杂场景（文字/数字/符号/时间）",
-            "快",
+            "PaddleOCR-json (高性能C++)",
+            "基于C++的PaddleOCR引擎，识别速度极快、内存占用低、精度极高",
+            "极快",
             "极高",
             False,  # 本地运行
             False  # 根据实际安装情况
@@ -259,12 +259,9 @@ class OCREngineManager:
         
         elif engine_type == EngineType.PADDLE:
             from ocr_engine_paddle import PaddleOCREngine
-            # 从配置读取GPU设置（None表示自动检测）
-            use_gpu_config = getattr(Config, 'OCR_USE_GPU', None)
-            # 如果配置为True则强制使用GPU，False则强制CPU，None则自动检测
-            use_gpu = use_gpu_config if isinstance(use_gpu_config, bool) else None
-            lang = getattr(Config, 'OCR_LANG', 'ch')
-            return PaddleOCREngine(use_gpu=use_gpu, lang=lang)
+            # 使用高性能 PaddleOCR-json 引擎（C++版本）
+            # 配置参数已内置于引擎中，无需传递
+            return PaddleOCREngine()
         
         elif engine_type == EngineType.RAPID:
             from ocr_engine_rapid import RapidOCREngine
