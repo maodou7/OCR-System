@@ -241,13 +241,19 @@ class ExcelExporter:
             
             # 读取所有数据行（跳过表头）
             existing_data_rows = []
-            for row in ws.iter_rows(min_row=2, values_only=True):
+            for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
                 # 过滤掉空行
                 if row and any(cell is not None for cell in row):
-                    existing_data_rows.append(list(row))
+                    row_data = list(row)
+                    existing_data_rows.append(row_data)
+                    # 调试：显示前2行数据的第1-3列
+                    if len(existing_data_rows) <= 2:
+                        preview = row_data[:3] if len(row_data) >= 3 else row_data
+                        print(f"[Excel读取] 第{row_idx}行数据预览: {preview}")
             
             wb.close()
             
+            print(f"[Excel读取] 共读取 {len(existing_data_rows)} 行旧数据，区域列数: {max_existing_rects}")
             return existing_data_rows, max_existing_rects
             
         except Exception as e:
@@ -359,7 +365,9 @@ class ExcelExporter:
                     
                     # 调试：显示第一行的处理情况
                     if idx == 1:
+                        preview = row_data[:3] if len(row_data) >= 3 else row_data
                         print(f"[Excel追加] 第1行旧数据: 原长度={original_len}, 补齐后={len(row_data)}, 表头列数={len(headers)}")
+                        print(f"[Excel追加] 第1行前3列内容: {preview}")
                     
                     # 设置边框
                     for cell in ws[ws.max_row]:
