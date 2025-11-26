@@ -113,6 +113,10 @@ wine "{exe_name}" "$@"
             print(f"OCR识别异常: {e}")
             return ""
     
+    def is_ready(self):
+        """检查引擎是否就绪"""
+        return hasattr(self, 'ocr') and self.ocr is not None
+    
     def __del__(self):
         """析构函数，关闭OCR引擎"""
         if hasattr(self, 'ocr') and self.ocr:
