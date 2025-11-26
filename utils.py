@@ -81,7 +81,7 @@ class FileUtils:
     @staticmethod
     def get_unique_filename(directory, base_name, extension):
         """
-        生成唯一的文件名（避免重名）
+        生成唯一的文件名（避免重名）- Windows风格括号序号
         :param directory: 目录路径
         :param base_name: 基础文件名
         :param extension: 文件扩展名
@@ -92,10 +92,10 @@ class FileUtils:
         if not os.path.exists(full_path):
             return full_path
         
-        # 如果文件已存在，添加数字后缀
+        # 如果文件已存在，添加括号序号后缀 (Windows风格)
         counter = 1
         while True:
-            new_name = f"{base_name}_{counter}{extension}"
+            new_name = f"{base_name}({counter}){extension}"
             full_path = os.path.join(directory, new_name)
             if not os.path.exists(full_path):
                 return full_path
@@ -195,17 +195,99 @@ class ExcelExporter:
     """Excel导出工具类"""
     
     @staticmethod
-    def export_results(ocr_results, save_path):
+    def load_existing_data(file_path):
+        """
+        读取现有Excel文件的数据
+        :param file_path: Excel文件路径
+        :return: (existing_data_rows, max_existing_rects) 或 (None, 0)
+        """
+        if not os.path.exists(file_path):
+            return None, 0
+        
+        try:
+            # 按需导入openpyxl
+            import openpyxl
+            
+            # 加载现有工作簿
+            wb = openpyxl.load_workbook(file_path)
+            ws = wb.active
+            
+            # 读取表头，解析区域列数量
+            headers = []
+            for cell in ws[1]:
+                if cell.value:
+                    headers.append(cell.value)
+            
+            # 计算现有的区域列数量
+            # 表头格式: ["序号", "文件名", "文件路径", "识别时间", "状态", "区域1", "区域2", ...]
+            fixed_columns = 5  # 前5列是固定的
+            max_existing_rects = max(0, len(headers) - fixed_columns)
+            
+            # 读取所有数据行（跳过表头）
+            existing_data_rows = []
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                # 过滤掉空行
+                if row and any(cell is not None for cell in row):
+                    existing_data_rows.append(list(row))
+            
+            wb.close()
+            
+            return existing_data_rows, max_existing_rects
+            
+        except Exception as e:
+            print(f"读取现有Excel文件失败: {e}")
+            return None, 0
+    
+    @staticmethod
+    def export_results(ocr_results, save_path, append_mode=False):
         """
         导出OCR识别结果到Excel
         :param ocr_results: 识别结果字典 {file_path: {rects: [], status: ""}}
         :param save_path: 保存路径
+        :param append_mode: 是否追加模式（True=追加到现有文件，False=新建文件）
         :return: 是否成功
         """
         try:
             # 按需导入openpyxl，只有导出Excel时才加载
             import openpyxl
             from openpyxl.styles import Font, Alignment, Border, Side
+            
+            # 处理追加模式和新建模式
+            existing_data_rows = []
+            max_existing_rects = 0
+            start_index = 1  # 新数据的起始序号
+            
+            if append_mode and os.path.exists(save_path):
+                # 追加模式：读取现有数据
+                existing_data_rows, max_existing_rects = ExcelExporter.load_existing_data(save_path)
+                if existing_data_rows is None:
+                    # 读取失败，提示错误
+                    print(f"追加模式下读取现有文件失败，将创建新文件")
+                    existing_data_rows = []
+                    max_existing_rects = 0
+                else:
+                    # 计算新数据的起始序号（从现有数据的最大序号+1开始）
+                    if existing_data_rows:
+                        # 第一列是序号
+                        max_existing_index = max(row[0] for row in existing_data_rows if row and row[0] is not None)
+                        start_index = max_existing_index + 1
+            elif not append_mode and os.path.exists(save_path):
+                # 新建模式：文件已存在，生成唯一文件名
+                import os.path as path
+                directory = path.dirname(save_path)
+                filename = path.basename(save_path)
+                base_name, extension = path.splitext(filename)
+                save_path = FileUtils.get_unique_filename(directory, base_name, extension)
+            
+            # 获取新数据的最大区域数量
+            max_new_rects = 0
+            for result in ocr_results.values():
+                rects = result.get("rects", [])
+                if len(rects) > max_new_rects:
+                    max_new_rects = len(rects)
+            
+            # 计算全局最大区域数量
+            max_rects = max(max_existing_rects, max_new_rects)
             
             # 创建工作簿
             wb = openpyxl.Workbook()
@@ -214,15 +296,6 @@ class ExcelExporter:
             
             # 设置表头
             headers = ["序号", "文件名", "文件路径", "识别时间", "状态"]
-            
-            # 获取最大区域数量
-            max_rects = 0
-            for result in ocr_results.values():
-                rects = result.get("rects", [])
-                if len(rects) > max_rects:
-                    max_rects = len(rects)
-            
-            # 添加区域列
             for i in range(max_rects):
                 headers.append(f"区域{i+1}")
             
@@ -243,8 +316,20 @@ class ExcelExporter:
                 cell.alignment = header_alignment
                 cell.border = border
             
-            # 填充数据
-            for idx, (file_path, result) in enumerate(ocr_results.items(), 1):
+            # 先写入现有数据（如果是追加模式）
+            if existing_data_rows:
+                for row_data in existing_data_rows:
+                    # 补齐区域列（如果新数据有更多区域）
+                    while len(row_data) < len(headers):
+                        row_data.append("")
+                    ws.append(row_data[:len(headers)])  # 确保不超过表头列数
+                    
+                    # 设置边框
+                    for cell in ws[ws.max_row]:
+                        cell.border = border
+            
+            # 填充新数据
+            for idx, (file_path, result) in enumerate(ocr_results.items(), start_index):
                 row_data = [
                     idx,
                     os.path.basename(file_path),
@@ -258,10 +343,14 @@ class ExcelExporter:
                 for rect in rects:
                     row_data.append(rect.text if hasattr(rect, 'text') else "")
                 
+                # 补齐区域列
+                while len(row_data) < len(headers):
+                    row_data.append("")
+                
                 ws.append(row_data)
                 
                 # 设置边框
-                for cell in ws[idx + 1]:
+                for cell in ws[ws.max_row]:
                     cell.border = border
             
             # 自动调整列宽
