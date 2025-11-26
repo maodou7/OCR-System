@@ -117,6 +117,46 @@ wine "{exe_name}" "$@"
         """检查引擎是否就绪"""
         return hasattr(self, 'ocr') and self.ocr is not None
     
+    def recognize_region(self, image, rect, **kwargs):
+        """
+        识别图片中的指定区域
+        :param image: PIL Image对象
+        :param rect: OCRRect对象或坐标元组 (x1, y1, x2, y2)
+        :return: 识别的文本字符串
+        """
+        if not self.is_ready():
+            return ""
+        
+        # 获取坐标
+        if hasattr(rect, 'get_coords'):
+            coords = rect.get_coords()
+        else:
+            coords = rect
+        
+        # 使用 ocr_image 方法识别
+        return self.ocr_image(image, rect=coords)
+    
+    def recognize_regions(self, image, rects, **kwargs):
+        """
+        批量识别多个区域
+        :param image: PIL Image对象
+        :param rects: OCRRect对象列表
+        :return: 识别结果字典 {rect: text}
+        """
+        if not self.is_ready():
+            return {}
+        
+        results = {}
+        for rect in rects:
+            text = self.recognize_region(image, rect, **kwargs)
+            results[rect] = text
+            
+            # 更新rect的text属性
+            if hasattr(rect, 'text'):
+                rect.text = text
+        
+        return results
+    
     def __del__(self):
         """析构函数，关闭OCR引擎"""
         if hasattr(self, 'ocr') and self.ocr:
