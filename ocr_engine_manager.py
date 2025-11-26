@@ -65,9 +65,9 @@ class OCREngineManager:
             False  # 根据实际安装情况
         ),
         EngineType.RAPID: EngineInfo(
-            "RapidOCR",
-            "快速轻量级OCR引擎",
-            "快",
+            "RapidOCR-json (高性能C++)",
+            "基于C++和ONNX Runtime的轻量级OCR引擎，快速启动、极低内存占用",
+            "极快",
             "中",
             False,  # 本地运行
             False  # 根据实际安装情况

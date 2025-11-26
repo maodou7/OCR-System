@@ -136,7 +136,9 @@ Umi-OCR-main/
 *.7z
 *.tar.gz
 
-# PaddleOCR-json 引擎文件（体积大，不提交）
+# OCR 引擎文件（体积大，不提交）
 models/PaddleOCR-json/
+models/RapidOCR-json/
 *.exe.sh
 ocr_engine_paddle.py.backup
+ocr_engine_rapid.py.backup
