@@ -8,7 +8,7 @@ from PySide6.QtGui import QAction, QPixmap, QPainter, QPen, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFileDialog, QVBoxLayout, QHBoxLayout,
     QLabel, QSplitter, QTableWidget, QTableWidgetItem, QToolBar, QPushButton,
-    QStatusBar, QMessageBox, QSizePolicy, QTextEdit, QComboBox
+    QStatusBar, QMessageBox, QSizePolicy, QTextEdit, QComboBox, QCheckBox
 )
 
 from config import Config, OCRRect
@@ -260,6 +260,9 @@ class MainWindow(QMainWindow):
         self._ocr_initialized = False
         self._ocr_worker = None  # 后台初始化线程
         self._ocr_tasks = []     # OCR识别任务列表（防止线程被垃圾回收）
+        
+        # Excel导出选项
+        self.append_mode_checkbox = None  # 追加模式勾选框（在_init_ui中初始化）
 
         # UI
         self._init_ui()
@@ -292,6 +295,11 @@ class MainWindow(QMainWindow):
         act_export = QAction("💾 导出Excel", self)
         act_export.triggered.connect(self.export_excel)
         tb.addAction(act_export)
+        
+        # 添加追加模式勾选框
+        self.append_mode_checkbox = QCheckBox("追加模式")
+        self.append_mode_checkbox.setToolTip("勾选后将数据追加到现有Excel文件，否则创建新文件（自动避免重名）")
+        tb.addWidget(self.append_mode_checkbox)
         
         # 添加分隔符
         tb.addSeparator()
@@ -731,6 +739,10 @@ class MainWindow(QMainWindow):
         save_path, _ = QFileDialog.getSaveFileName(self, "保存为Excel", str(Path.cwd() / "ocr结果.xlsx"), "Excel (*.xlsx)")
         if not save_path:
             return
+        
+        # 获取追加模式状态
+        append_mode = self.append_mode_checkbox.isChecked()
+        
         # 汇总结果
         results = {}
         for i, p in enumerate(self.files):
@@ -738,9 +750,12 @@ class MainWindow(QMainWindow):
                 "rects": self.rects if i == self.cur_index else [],
                 "status": self.table.item(i, 2).text() if self.table.item(i, 2) else ""
             }
-        ok = ExcelExporter.export_results(results, save_path)
+        
+        # 导出Excel
+        ok = ExcelExporter.export_results(results, save_path, append_mode=append_mode)
         if ok:
-            QMessageBox.information(self, "成功", "导出完成。")
+            mode_text = "追加" if append_mode else "新建"
+            QMessageBox.information(self, "成功", f"Excel导出完成（{mode_text}模式）。")
         else:
             QMessageBox.warning(self, "失败", "导出失败。")
 
