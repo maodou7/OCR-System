@@ -32,14 +32,30 @@ class OCRInitWorker(QThread):
             # 延迟导入（在工作线程中）
             from ocr_engine_manager import OCREngineManager
             
+            # 检查是否已请求中断
+            if self.isInterruptionRequested():
+                return
+            
             # 创建引擎管理器（只初始化首选引擎）
             manager = OCREngineManager()
+            
+            # 检查是否已请求中断
+            if self.isInterruptionRequested():
+                return
             
             # 发送首选引擎就绪信号
             self.primary_init_finished.emit(manager)
             
+            # 检查是否已请求中断
+            if self.isInterruptionRequested():
+                return
+            
             # 继续在后台初始化其他引擎
             manager.init_background_engines()
+            
+            # 检查是否已请求中断
+            if self.isInterruptionRequested():
+                return
             
             # 发送全部完成信号
             self.finished.emit(manager)
@@ -197,6 +213,30 @@ class RectSelectionLabel(QLabel):
         iw = int(w / self._scale)
         ih = int(h / self._scale)
         return QRect(ix, iy, iw, ih)
+    
+    def image_to_display_rect(self, ix: int, iy: int, iw: int, ih: int) -> QRect:
+        """将原图坐标矩形转换为显示坐标矩形"""
+        if self._scale <= 0 or not self._display_size:
+            return QRect()
+        # 缩放到显示大小
+        x = int(ix * self._scale)
+        y = int(iy * self._scale)
+        w = int(iw * self._scale)
+        h = int(ih * self._scale)
+        # 计算居中偏移
+        off_x = (self.width() - self._display_size.width()) // 2
+        off_y = (self.height() - self._display_size.height()) // 2
+        return QRect(x + off_x, y + off_y, w, h)
+    
+    def set_rects(self, rects: List[QRect]):
+        """设置显示的矩形列表（用于切换文件时恢复框选）"""
+        self._rects = rects.copy()
+        self.update()
+    
+    def clear_rects(self):
+        """清空所有矩形"""
+        self._rects.clear()
+        self.update()
 
 
 class OCRWorker(QThread):
@@ -347,8 +387,22 @@ class MainWindow(QMainWindow):
         right = QWidget()
         right_v = QVBoxLayout(right)
         self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["序号", "路径", "状态"])
-        self.table.cellDoubleClicked.connect(self.on_table_double_clicked)
+        self.table.setHorizontalHeaderLabels(["序号", "文件名", "状态"])
+        
+        # 设置列宽
+        self.table.setColumnWidth(0, 50)   # 序号列：50px
+        self.table.setColumnWidth(1, 250)  # 文件名列：250px
+        self.table.setColumnWidth(2, 80)   # 状态列：80px
+        
+        # 设置列的拉伸模式
+        from PySide6.QtWidgets import QHeaderView
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Fixed)      # 序号固定宽度
+        header.setSectionResizeMode(1, QHeaderView.Stretch)    # 文件名自适应拉伸
+        header.setSectionResizeMode(2, QHeaderView.Fixed)      # 状态固定宽度
+        
+        self.table.cellClicked.connect(self.on_table_clicked)  # 单击切换
+        self.table.cellDoubleClicked.connect(self.on_table_double_clicked)  # 双击（保留）
         right_v.addWidget(self.table)
 
         splitter.addWidget(left)
@@ -559,11 +613,26 @@ class MainWindow(QMainWindow):
         for i, p in enumerate(self.files, 1):
             row = self.table.rowCount()
             self.table.insertRow(row)
+            
+            # 序号
             self.table.setItem(row, 0, QTableWidgetItem(str(i)))
-            self.table.setItem(row, 1, QTableWidgetItem(p))
+            
+            # 文件名（只显示文件名，不显示完整路径）
+            filename = os.path.basename(p)
+            filename_item = QTableWidgetItem(filename)
+            filename_item.setToolTip(p)  # 鼠标悬停显示完整路径
+            self.table.setItem(row, 1, filename_item)
+            
+            # 状态
             self.table.setItem(row, 2, QTableWidgetItem("待处理"))
 
+    def on_table_clicked(self, row, col):
+        """单击文件列表切换图片"""
+        if row != self.cur_index:
+            self.load_index(row)
+    
     def on_table_double_clicked(self, row, col):
+        """双击文件列表（保留兼容）"""
         self.load_index(row)
 
     # ---- 加载显示 ----
@@ -591,10 +660,26 @@ class MainWindow(QMainWindow):
             
             # 从all_ocr_results恢复区域（如果有）
             # 临时断开信号，避免触发文本同步
-            self.result_text.textChanged.disconnect(self.on_result_text_changed)
+            try:
+                self.result_text.textChanged.disconnect(self.on_result_text_changed)
+            except (RuntimeError, TypeError):
+                pass  # 信号未连接或其他问题时忽略
             
             if path in self.all_ocr_results:
                 self.rects = self.all_ocr_results[path]["rects"].copy()
+                
+                # 🔑 关键：将OCRRect转换为显示坐标的QRect，恢复显示层的矩形
+                display_rects = []
+                for rect in self.rects:
+                    # OCRRect 使用 x1, y1, x2, y2，需要转换为 x, y, width, height
+                    width = rect.x2 - rect.x1
+                    height = rect.y2 - rect.y1
+                    display_rect = self.image_label.image_to_display_rect(
+                        rect.x1, rect.y1, width, height
+                    )
+                    display_rects.append(display_rect)
+                self.image_label.set_rects(display_rects)
+                
                 # 恢复文本显示
                 self.result_text.clear()
                 for rect in self.rects:
@@ -602,10 +687,14 @@ class MainWindow(QMainWindow):
                         self.append_result(rect.text)
             else:
                 self.rects = []
+                self.image_label.clear_rects()
                 self.result_text.clear()
             
             # 重新连接信号
             self.result_text.textChanged.connect(self.on_result_text_changed)
+            
+            # 高亮显示当前文件
+            self.table.selectRow(idx)
             
             self.statusBar().showMessage(f"已加载: {os.path.basename(path)}")
         except Exception as e:
@@ -1001,13 +1090,35 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 print(f"保存缓存失败: {e}")
         
-        # 停止初始化线程
-        if self._ocr_worker and self._ocr_worker.isRunning():
-            self._ocr_worker.quit()
-            self._ocr_worker.wait(1000)  # 等待1秒
+        # 先关闭所有OCR引擎（关键！防止子进程残留）
+        if self.ocr_manager:
+            try:
+                print("正在关闭OCR引擎...")
+                # 关闭所有已初始化的引擎实例
+                for engine_type, engine_instance in self.ocr_manager._engine_instances.items():
+                    try:
+                        # 调用引擎的析构方法关闭子进程
+                        if hasattr(engine_instance, '__del__'):
+                            engine_instance.__del__()
+                        elif hasattr(engine_instance, 'close'):
+                            engine_instance.close()
+                    except Exception as e:
+                        print(f"关闭引擎 {engine_type} 失败: {e}")
+                print("OCR引擎已关闭")
+            except Exception as e:
+                print(f"关闭OCR引擎失败: {e}")
+        
+        # 停止初始化线程（这是崩溃的主要原因）
+        if hasattr(self, '_ocr_worker') and self._ocr_worker:
             if self._ocr_worker.isRunning():
-                self._ocr_worker.terminate()  # 强制终止
-                self._ocr_worker.wait()
+                print("正在停止OCR初始化线程...")
+                self._ocr_worker.requestInterruption()  # 请求中断
+                self._ocr_worker.quit()  # 请求线程退出
+                if not self._ocr_worker.wait(3000):  # 等待3秒
+                    print("强制终止OCR初始化线程...")
+                    self._ocr_worker.terminate()  # 强制终止
+                    self._ocr_worker.wait()
+                print("OCR初始化线程已停止")
         
         # 停止所有OCR任务线程
         for worker in self._ocr_tasks:

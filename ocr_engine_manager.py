@@ -49,15 +49,15 @@ class OCREngineManager:
     # 引擎信息表
     ENGINE_INFO = {
         EngineType.ALIYUN: EngineInfo(
-            "Alibaba OCR",
+            "阿里云OCR",
             "阿里云在线OCR服务，支持多种特殊证件识别",
             "中",
             "高",
             True,   # 在线服务
-            True
+            False   # 默认不可用，需要配置密钥后才可用
         ),
         EngineType.PADDLE: EngineInfo(
-            "PaddleOCR-json (高性能C++)",
+            "PaddleOCR（高性能C++版）",
             "基于C++的PaddleOCR引擎，识别速度极快、内存占用低、精度极高",
             "极快",
             "极高",
@@ -65,7 +65,7 @@ class OCREngineManager:
             False  # 根据实际安装情况
         ),
         EngineType.RAPID: EngineInfo(
-            "RapidOCR-json (高性能C++)",
+            "RapidOCR（轻量级C++版）",
             "基于C++和ONNX Runtime的轻量级OCR引擎，快速启动、极低内存占用",
             "极快",
             "中",
@@ -73,8 +73,8 @@ class OCREngineManager:
             False  # 根据实际安装情况
         ),
         EngineType.DEEPSEEK: EngineInfo(
-            "DeepSeek OCR",
-            "硅基流动DeepSeek-OCR服务（当前限免测试）",
+            "DeepSeek OCR（智能版）",
+            "硅基流动DeepSeek-OCR服务，AI大模型驱动（当前限免测试）",
             "快",
             "待测试",
             True,   # 在线服务
@@ -97,13 +97,17 @@ class OCREngineManager:
         # 确定初始引擎
         # 如果未指定，则使用配置中的默认引擎，或者按优先级选择
         if not engine_type:
-            # 优先使用配置的默认引擎
-            default_engine = getattr(Config, 'OCR_ENGINE', 'aliyun')
+            # 优先使用配置的默认引擎（Config.OCR_ENGINE）
+            default_engine = getattr(Config, 'OCR_ENGINE', 'paddle')
             if self.is_engine_available(default_engine):
                 engine_type = default_engine
             else:
-                # 如果默认引擎不可用，按优先级选择：aliyun > paddle > rapid
-                for et in ['aliyun', 'paddle', 'rapid']:
+                # 如果默认引擎不可用，按优先级回退选择
+                # 设计原则：
+                #   1. 本地引擎优先（无需网络、无需密钥、响应快）
+                #   2. 在线服务其次（需要配置、依赖网络）
+                # 优先级：paddle（极高精度） > rapid（高速度） > aliyun（在线） > deepseek（在线）
+                for et in ['paddle', 'rapid', 'aliyun', 'deepseek']:
                     if self.is_engine_available(et):
                         engine_type = et
                         break
@@ -115,10 +119,11 @@ class OCREngineManager:
             
     def init_background_engines(self):
         """
-        后台静默初始化其他引擎（按顺序：Aliyun -> Paddle -> Rapid -> DeepSeek）
+        后台静默初始化其他引擎（按顺序：Paddle -> Rapid -> Aliyun -> DeepSeek）
+        优先初始化本地引擎（启动快），然后初始化在线服务
         注意：set_engine已经初始化了当前引擎，这里只需要初始化剩下的
         """
-        init_order = [EngineType.ALIYUN, EngineType.PADDLE, EngineType.RAPID, EngineType.DEEPSEEK]
+        init_order = [EngineType.PADDLE, EngineType.RAPID, EngineType.ALIYUN, EngineType.DEEPSEEK]
         
         for et in init_order:
             # 跳过已经初始化的当前引擎
@@ -145,33 +150,70 @@ class OCREngineManager:
     @staticmethod
     def _check_engine_availability():
         """检查各引擎的可用性"""
-        # 检查阿里云OCR（检查SDK和密钥配置）
+        # 检查阿里云OCR（检查SDK、密钥配置和启用开关）
         try:
             from alibabacloud_ocr_api20210707.client import Client as OcrClient
-            # 检查config.py中是否配置了密钥
-            if hasattr(Config, 'ALIYUN_ACCESS_KEY_ID') and Config.ALIYUN_ACCESS_KEY_ID:
+            
+            # 调试输出：显示当前配置状态
+            enabled = getattr(Config, 'ALIYUN_ENABLED', False)
+            has_key_id = bool(getattr(Config, 'ALIYUN_ACCESS_KEY_ID', ''))
+            has_key_secret = bool(getattr(Config, 'ALIYUN_ACCESS_KEY_SECRET', ''))
+            
+            print(f"[阿里云OCR] 配置检查: ENABLED={enabled}, 有KEY_ID={has_key_id}, 有KEY_SECRET={has_key_secret}")
+            
+            # 必须同时满足：1. ENABLED=True, 2. 有密钥, 3. SDK可导入
+            if enabled and has_key_id and has_key_secret:
                 OCREngineManager.ENGINE_INFO[EngineType.ALIYUN].available = True
+                print(f"[阿里云OCR] ✓ 可用")
+            else:
+                print(f"[阿里云OCR] ✗ 不可用（未满足条件）")
         except ImportError:
-            pass
+            print(f"[阿里云OCR] ✗ 不可用（SDK未安装）")
         
-        # 检查 PaddleOCR-json（C++ 引擎）
+        # 检查 PaddleOCR（C++ 引擎）
+        enabled = getattr(Config, 'PADDLE_ENABLED', True)
         paddle_exe = os.path.join(os.path.dirname(__file__), "models", "PaddleOCR-json", "PaddleOCR-json_v1.4.1", "PaddleOCR-json.exe")
-        if os.path.exists(paddle_exe):
+        has_exe = os.path.exists(paddle_exe)
+        
+        print(f"[PaddleOCR] 配置检查: ENABLED={enabled}, 可执行文件存在={has_exe}")
+        
+        if enabled and has_exe:
             OCREngineManager.ENGINE_INFO[EngineType.PADDLE].available = True
+            print(f"[PaddleOCR] ✓ 可用")
+        else:
+            print(f"[PaddleOCR] ✗ 不可用（未满足条件）")
         
-        # 检查 RapidOCR-json（C++ 引擎）
+        # 检查 RapidOCR（C++ 引擎）
+        enabled = getattr(Config, 'RAPID_ENABLED', True)
         rapid_exe = os.path.join(os.path.dirname(__file__), "models", "RapidOCR-json", "RapidOCR-json_v0.2.0", "RapidOCR-json.exe")
-        if os.path.exists(rapid_exe):
-            OCREngineManager.ENGINE_INFO[EngineType.RAPID].available = True
+        has_exe = os.path.exists(rapid_exe)
         
-        # 检查DeepSeek OCR（检查SDK和API Key配置）
+        print(f"[RapidOCR] 配置检查: ENABLED={enabled}, 可执行文件存在={has_exe}")
+        
+        if enabled and has_exe:
+            OCREngineManager.ENGINE_INFO[EngineType.RAPID].available = True
+            print(f"[RapidOCR] ✓ 可用")
+        else:
+            print(f"[RapidOCR] ✗ 不可用（未满足条件）")
+        
+        # 检查DeepSeek OCR（检查SDK、API Key配置和启用开关）
         try:
             from openai import OpenAI
-            # 检查config.py中是否配置了API Key
-            if hasattr(Config, 'DEEPSEEK_API_KEY') and Config.DEEPSEEK_API_KEY:
+            
+            # 调试输出：显示当前配置状态
+            enabled = getattr(Config, 'DEEPSEEK_ENABLED', False)
+            has_api_key = bool(getattr(Config, 'DEEPSEEK_API_KEY', ''))
+            
+            print(f"[DeepSeek OCR] 配置检查: ENABLED={enabled}, 有API_KEY={has_api_key}")
+            
+            # 必须同时满足：1. ENABLED=True, 2. 有API Key, 3. SDK可导入
+            if enabled and has_api_key:
                 OCREngineManager.ENGINE_INFO[EngineType.DEEPSEEK].available = True
+                print(f"[DeepSeek OCR] ✓ 可用")
+            else:
+                print(f"[DeepSeek OCR] ✗ 不可用（未满足条件）")
         except ImportError:
-            pass
+            print(f"[DeepSeek OCR] ✗ 不可用（SDK未安装）")
     
     def is_engine_available(self, engine_type: str) -> bool:
         """

@@ -60,12 +60,14 @@ output/*.xlsx
 *.pdf_cache
 
 # 配置文件（如果包含敏感信息）
-config.py  # 忽略包含密钥的配置文件
-# 或者只忽略包含密钥的配置副本
+# config.py 现在安全（密钥从环境变量读取），可以提交到Git
+# 只忽略包含真实密钥的本地配置副本
 config_local.py
 *_secret.py
 .env
 .env.local
+.env.*
+!.env.example
 
 # 用户数据目录
 .ocr_system/
