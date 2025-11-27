@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+!models/libocr_cache.so
 .Python
 *.egg
 *.egg-info/
@@ -130,19 +131,21 @@ Umi-OCR-main/
 *.sqlite
 *.sqlite3
 
+# C++编译输出（macOS和Windows用户需要）
+models/libocr_cache.dylib
+models/ocr_cache.dll
+
 # 压缩文件
 *.zip
 *.rar
-*.7z
 *.tar.gz
-
+!models/*.7z
 
 *.exe.sh
 ocr_engine_paddle.py.backup
 ocr_engine_rapid.py.backup
 
 # 缓存目录
-.ocr_cache/
 .test_cache/
 
 # 测试图片
