@@ -136,9 +136,11 @@ Umi-OCR-main/
 *.7z
 *.tar.gz
 
-# OCR 引擎文件（体积大，不提交）
-models/PaddleOCR-json/
-models/RapidOCR-json/
+# OCR引擎压缩包（源文件不需要）
+*OCR*.7z
+*OCR*.zip
+
+# C++编译输出（用户自己编译）
 models/libocr_cache.so
 models/libocr_cache.dylib
 models/ocr_cache.dll
