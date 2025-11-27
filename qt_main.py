@@ -17,6 +17,7 @@ from config import Config, OCRRect
 # from ocr_engine_manager import OCREngineManager
 from utils import FileUtils, ImageUtils, ExcelExporter
 from PIL import Image
+from ocr_cache_manager import OCRCacheManager
 
 
 class OCRInitWorker(QThread):
@@ -251,8 +252,8 @@ class MainWindow(QMainWindow):
         self.cur_index = -1
         self.cur_pil: Image.Image | None = None
         self.cur_pix: QPixmap | None = None
-        self.rects: List[OCRRect] = []
-        self.ocr_results = {}
+        self.rects: List[OCRRect] = []  # 当前图片的区域
+        self.all_ocr_results: dict = {}  # 所有文件的OCR结果 {file_path: {"rects": [OCRRect], "status": str}}
         
         # 延迟初始化OCR引擎（加快启动速度）
         self.ocr_manager = None
@@ -260,6 +261,13 @@ class MainWindow(QMainWindow):
         self._ocr_initialized = False
         self._ocr_worker = None  # 后台初始化线程
         self._ocr_tasks = []     # OCR识别任务列表（防止线程被垃圾回收）
+        
+        # 初始化缓存管理器
+        try:
+            self.cache_manager = OCRCacheManager()
+        except Exception as e:
+            print(f"缓存管理器初始化失败: {e}")
+            self.cache_manager = None
 
         # UI
         self._init_ui()
@@ -267,6 +275,9 @@ class MainWindow(QMainWindow):
         # 在后台线程中异步初始化OCR引擎（不阻塞UI）
         from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self._start_ocr_init_thread)
+        
+        # 延迟检查是否恢复会话
+        QTimer.singleShot(500, self._check_restore_session)
 
     def _init_ui(self):
         # 工具栏
@@ -559,6 +570,15 @@ class MainWindow(QMainWindow):
     def load_index(self, idx: int):
         if idx < 0 or idx >= len(self.files):
             return
+        
+        # 保存当前图片的结果
+        if self.cur_index >= 0 and self.cur_index < len(self.files):
+            old_file = self.files[self.cur_index]
+            self.all_ocr_results[old_file] = {
+                "rects": self.rects.copy(),
+                "status": self.table.item(self.cur_index, 2).text() if self.table.item(self.cur_index, 2) else "待处理"
+            }
+        
         self.cur_index = idx
         path = self.files[idx]
         try:
@@ -568,8 +588,25 @@ class MainWindow(QMainWindow):
             qimg = self._pil_to_qpixmap(pil)
             self.cur_pix = qimg
             self.image_label.load_image(qimg, pil.width, pil.height)
-            self.rects = []
-            self.result_text.clear()
+            
+            # 从all_ocr_results恢复区域（如果有）
+            # 临时断开信号，避免触发文本同步
+            self.result_text.textChanged.disconnect(self.on_result_text_changed)
+            
+            if path in self.all_ocr_results:
+                self.rects = self.all_ocr_results[path]["rects"].copy()
+                # 恢复文本显示
+                self.result_text.clear()
+                for rect in self.rects:
+                    if rect.text:
+                        self.append_result(rect.text)
+            else:
+                self.rects = []
+                self.result_text.clear()
+            
+            # 重新连接信号
+            self.result_text.textChanged.connect(self.on_result_text_changed)
+            
             self.statusBar().showMessage(f"已加载: {os.path.basename(path)}")
         except Exception as e:
             QMessageBox.warning(self, "加载失败", str(e))
@@ -623,6 +660,16 @@ class MainWindow(QMainWindow):
         else:
             # 全图识别
             self.append_result(text)
+        
+        # 保存到all_ocr_results字典
+        if self.cur_index >= 0 and self.cur_index < len(self.files):
+            current_file = self.files[self.cur_index]
+            self.all_ocr_results[current_file] = {
+                "rects": self.rects.copy(),
+                "status": "已识别"
+            }
+            # 自动保存到缓存
+            self._auto_save_cache()
             
         self.statusBar().showMessage("✓ 识别完成", 2000)
         self.update_current_status("已识别")
@@ -643,11 +690,29 @@ class MainWindow(QMainWindow):
         """处理右键删除框选区域"""
         if 0 <= index < len(self.rects):
             removed_rect = self.rects.pop(index)
+            
+            # 临时断开信号，避免在刷新时触发文本同步
+            self.result_text.textChanged.disconnect(self.on_result_text_changed)
+            
             # 刷新结果显示
             self.result_text.clear()
             for rect in self.rects:
                 if rect.text:
                     self.append_result(rect.text)
+            
+            # 重新连接信号
+            self.result_text.textChanged.connect(self.on_result_text_changed)
+            
+            # 更新all_ocr_results
+            if self.files and self.cur_index < len(self.files):
+                current_file = self.files[self.cur_index]
+                self.all_ocr_results[current_file] = {
+                    'rects': [rect for rect in self.rects],
+                    'status': self.table.item(self.cur_index, 2).text() if self.table.item(self.cur_index, 2) else '未识别'
+                }
+                # 自动保存到缓存
+                self._auto_save_cache()
+            
             self.statusBar().showMessage(f"已删除区域 {index + 1}")
 
     def append_result(self, text: str):
@@ -766,6 +831,14 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "提示", "没有数据可导出。")
             return
         
+        # 保存当前图片的结果
+        if self.cur_index >= 0 and self.cur_index < len(self.files):
+            current_file = self.files[self.cur_index]
+            self.all_ocr_results[current_file] = {
+                "rects": self.rects.copy(),
+                "status": self.table.item(self.cur_index, 2).text() if self.table.item(self.cur_index, 2) else "待处理"
+            }
+        
         # 第一步：让用户选择导出模式
         reply = QMessageBox.question(
             self,
@@ -806,13 +879,18 @@ class MainWindow(QMainWindow):
             if not save_path:
                 return
         
-        # 汇总结果
+        # 汇总结果：使用all_ocr_results而非仅当前rects
         results = {}
-        for i, p in enumerate(self.files):
-            results[p] = {
-                "rects": self.rects if i == self.cur_index else [],
-                "status": self.table.item(i, 2).text() if self.table.item(i, 2) else ""
-            }
+        for p in self.files:
+            if p in self.all_ocr_results:
+                results[p] = self.all_ocr_results[p]
+            else:
+                # 未识别的文件
+                idx = self.files.index(p)
+                results[p] = {
+                    "rects": [],
+                    "status": self.table.item(idx, 2).text() if self.table.item(idx, 2) else "待处理"
+                }
         
         # 导出Excel
         ok = ExcelExporter.export_results(results, save_path, append_mode=append_mode)
@@ -827,10 +905,102 @@ class MainWindow(QMainWindow):
             self.table.setItem(self.cur_index, 2, QTableWidgetItem(text))
 
 
+    def _auto_save_cache(self):
+        """自动保存缓存"""
+        if not self.cache_manager:
+            return
+        
+        try:
+            # 保存当前文件的结果
+            if self.cur_index >= 0 and self.cur_index < len(self.files):
+                current_file = self.files[self.cur_index]
+                if current_file in self.all_ocr_results:
+                    result = self.all_ocr_results[current_file]
+                    self.cache_manager.save_result(
+                        current_file,
+                        result["rects"],
+                        result["status"]
+                    )
+            
+            # 保存会话信息
+            self.cache_manager.save_session(self.files, self.cur_index)
+        except Exception as e:
+            print(f"自动保存缓存失败: {e}")
+    
+    def _check_restore_session(self):
+        """检查是否恢复会话"""
+        if not self.cache_manager:
+            return
+        
+        try:
+            if self.cache_manager.has_cache():
+                reply = QMessageBox.question(
+                    self,
+                    "发现未完成任务",
+                    "检测到上次未完成的识别任务，是否继续？\n\n"
+                    "点击 Yes 继续上次任务\n"
+                    "点击 No 开始新任务（清除缓存）",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 恢复会话
+                    session = self.cache_manager.load_session()
+                    if session:
+                        self.files = session.get("files", [])
+                        cur_index = session.get("cur_index", 0)
+                        
+                        # 加载所有OCR结果
+                        self.all_ocr_results = self.cache_manager.load_all_results()
+                        
+                        # 刷新表格
+                        self.refresh_table()
+                        
+                        # 更新状态
+                        for i, file_path in enumerate(self.files):
+                            if file_path in self.all_ocr_results:
+                                status = self.all_ocr_results[file_path].get("status", "待处理")
+                                self.table.setItem(i, 2, QTableWidgetItem(status))
+                        
+                        # 加载当前索引的图片
+                        if 0 <= cur_index < len(self.files):
+                            self.load_index(cur_index)
+                            self.table.selectRow(cur_index)
+                        
+                        self.statusBar().showMessage("✓ 已恢复上次会话", 3000)
+                else:
+                    # 清除缓存
+                    self.cache_manager.clear_cache()
+                    self.statusBar().showMessage("已清除旧缓存", 2000)
+        except Exception as e:
+            print(f"恢复会话失败: {e}")
+    
     def closeEvent(self, event):
         """
-        窗口关闭事件：清理线程资源
+        窗口关闭事件：保存缓存并清理线程资源
         """
+        # 保存当前状态到缓存
+        if self.cur_index >= 0 and self.cur_index < len(self.files):
+            current_file = self.files[self.cur_index]
+            self.all_ocr_results[current_file] = {
+                "rects": self.rects.copy(),
+                "status": self.table.item(self.cur_index, 2).text() if self.table.item(self.cur_index, 2) else "待处理"
+            }
+        
+        # 保存所有结果到缓存
+        if self.cache_manager:
+            try:
+                for file_path, result in self.all_ocr_results.items():
+                    self.cache_manager.save_result(
+                        file_path,
+                        result["rects"],
+                        result["status"]
+                    )
+                self.cache_manager.save_session(self.files, self.cur_index)
+            except Exception as e:
+                print(f"保存缓存失败: {e}")
+        
         # 停止初始化线程
         if self._ocr_worker and self._ocr_worker.isRunning():
             self._ocr_worker.quit()
