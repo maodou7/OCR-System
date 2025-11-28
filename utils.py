@@ -6,12 +6,9 @@
 import os
 from pathlib import Path
 from datetime import datetime
-# 延迟导入重型库，减小打包体积
-# import fitz  # PyMuPDF - 改为按需导入
 from PIL import Image
-# import openpyxl - 改为按需导入
-# from openpyxl.styles import Font, Alignment, Border, Side - 改为按需导入
 from config import Config
+from dependency_manager import DependencyManager
 
 
 class FileUtils:
@@ -130,8 +127,13 @@ class ImageUtils:
         :param zoom: 缩放因子
         :return: PIL Image对象
         """
-        # 按需导入PyMuPDF，只有处理PDF时才加载
-        import fitz
+        # 使用DependencyManager按需加载PyMuPDF
+        fitz = DependencyManager.load_pdf_support()
+        if not fitz:
+            raise ImportError(
+                "PDF处理功能需要PyMuPDF库。\n"
+                "请安装: pip install PyMuPDF"
+            )
         
         if zoom is None:
             zoom = Config.PDF_ZOOM_FACTOR
@@ -221,8 +223,10 @@ class ExcelExporter:
             return None, 0
         
         try:
-            # 按需导入openpyxl
-            import openpyxl
+            # 使用DependencyManager按需加载openpyxl
+            openpyxl = DependencyManager.load_excel_support()
+            if not openpyxl:
+                raise ImportError("openpyxl不可用")
             
             # 加载现有工作簿
             wb = openpyxl.load_workbook(file_path)
@@ -270,8 +274,14 @@ class ExcelExporter:
         :return: 是否成功
         """
         try:
-            # 按需导入openpyxl，只有导出Excel时才加载
-            import openpyxl
+            # 使用DependencyManager按需加载openpyxl
+            openpyxl = DependencyManager.load_excel_support()
+            if not openpyxl:
+                raise ImportError(
+                    "Excel导出功能需要openpyxl库。\n"
+                    "请安装: pip install openpyxl"
+                )
+            
             from openpyxl.styles import Font, Alignment, Border, Side
             
             # 处理追加模式和新建模式

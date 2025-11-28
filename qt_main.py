@@ -12,12 +12,10 @@ from PySide6.QtWidgets import (
 )
 
 from config import Config, OCRRect
-# 延迟导入重型库，加快启动速度并减小打包体积
-# OCR引擎管理器在后台线程中按需导入
-# from ocr_engine_manager import OCREngineManager
 from utils import FileUtils, ImageUtils, ExcelExporter
 from PIL import Image
 from ocr_cache_manager import OCRCacheManager
+from dependency_manager import DependencyManager
 
 
 class OCRInitWorker(QThread):
@@ -29,8 +27,11 @@ class OCRInitWorker(QThread):
     def run(self):
         """在后台线程中初始化OCR引擎"""
         try:
-            # 延迟导入（在工作线程中）
-            from ocr_engine_manager import OCREngineManager
+            # 使用DependencyManager延迟导入OCR引擎管理器
+            OCREngineManager = DependencyManager.load_ocr_engine()
+            if not OCREngineManager:
+                self.error.emit("OCR引擎管理器不可用")
+                return
             
             # 检查是否已请求中断
             if self.isInterruptionRequested():
