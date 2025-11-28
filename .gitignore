@@ -25,6 +25,7 @@ venv/
 ENV/
 env/
 .virtualenv/
+portable_python/
 
 # IDE 和编辑器
 .vscode/
@@ -139,7 +140,6 @@ Umi-OCR-main/
 
 # C++编译输出（macOS和Windows用户需要）
 models/libocr_cache.dylib
-models/ocr_cache.dll
 models/cpp_engine/build/py.backup
 
 # 压缩文件
