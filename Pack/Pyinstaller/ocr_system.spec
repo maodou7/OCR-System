@@ -8,9 +8,21 @@ This file defines the build configuration for packaging the OCR System applicati
 import os
 import sys
 
-# Get the project root directory (two levels up from this spec file)
-spec_dir = os.path.dirname(os.path.abspath(SPECPATH))
-project_root = os.path.dirname(os.path.dirname(spec_dir))
+# Get the project root directory
+# SPECPATH is the directory containing this spec file (Pack/Pyinstaller/)
+# We need to go up two levels to reach the project root
+if os.path.isabs(SPECPATH):
+    # SPECPATH is absolute path
+    project_root = os.path.dirname(os.path.dirname(SPECPATH))
+else:
+    # SPECPATH is relative path, resolve it first
+    spec_abs_path = os.path.abspath(SPECPATH)
+    project_root = os.path.dirname(os.path.dirname(spec_abs_path))
+
+print(f"[DEBUG] SPECPATH: {SPECPATH}")
+print(f"[DEBUG] Project root: {project_root}")
+print(f"[DEBUG] Entry point: {os.path.join(project_root, 'qt_run.py')}")
+print(f"[DEBUG] Entry point exists: {os.path.exists(os.path.join(project_root, 'qt_run.py'))}")
 
 # Define hidden imports that PyInstaller may not automatically detect
 hidden_imports = [

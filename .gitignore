@@ -107,6 +107,7 @@ ALIYUN_*.md
 BUG_*.md
 UI_*.md
 QUICK_START.md
+!Pack/7z-Self-Extracting/QUICK_START.md
 IMPLEMENTATION_*.md
 ENGINE_*.md
 INTEGRATION_*.md
@@ -150,7 +151,16 @@ models/cpp_engine/build/py.backup
 *.zip
 *.rar
 *.tar.gz
+*.7z
 !models/*.7z
+
+# 7z-Self-Extracting 生成的文件
+Pack/7z-Self-Extracting/*.exe
+Pack/7z-Self-Extracting/*.7z
+Pack/7z-Self-Extracting/temp_sfx/
+Pack/7z-Self-Extracting/temp_sfx_fast/
+Pack/7z-Self-Extracting/config.txt
+Pack/7z-Self-Extracting/config_fast.txt
 
 *.exe.sh
 ocr_engine_paddle.py.backup
