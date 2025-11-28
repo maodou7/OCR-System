@@ -124,16 +124,34 @@ class Config:
     EXCEL_HEADER_FONT_SIZE = 11
     EXCEL_MAX_COLUMN_WIDTH = 50
     
-    # 配置文件路径
-    CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".ocr_system")
-    CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
+    # 配置文件路径（便携式设计）
+    # 优先使用项目本地目录，回退到用户主目录
+    @classmethod
+    def _get_config_dir(cls):
+        """获取配置目录路径（便携式）"""
+        # 首选：项目本地目录（便携式）
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        local_config_dir = os.path.join(script_dir, ".ocr_system_config")
+        
+        # 如果本地配置目录存在或可创建，使用它
+        if os.path.exists(local_config_dir) or os.access(script_dir, os.W_OK):
+            return local_config_dir
+        
+        # 回退：用户主目录
+        return os.path.join(os.path.expanduser("~"), ".ocr_system")
+    
+    @classmethod
+    def _get_config_file(cls):
+        """获取配置文件路径"""
+        return os.path.join(cls._get_config_dir(), "config.json")
     
     @classmethod
     def load_user_config(cls):
         """加载用户配置"""
-        if os.path.exists(cls.CONFIG_FILE):
+        config_file = cls._get_config_file()
+        if os.path.exists(config_file):
             try:
-                with open(cls.CONFIG_FILE, 'r', encoding='utf-8') as f:
+                with open(config_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except Exception as e:
                 print(f"加载配置文件失败: {e}")
@@ -143,8 +161,10 @@ class Config:
     def save_user_config(cls, config_dict):
         """保存用户配置"""
         try:
-            os.makedirs(cls.CONFIG_DIR, exist_ok=True)
-            with open(cls.CONFIG_FILE, 'w', encoding='utf-8') as f:
+            config_dir = cls._get_config_dir()
+            os.makedirs(config_dir, exist_ok=True)
+            config_file = cls._get_config_file()
+            with open(config_file, 'w', encoding='utf-8') as f:
                 json.dump(config_dict, f, ensure_ascii=False, indent=2)
             return True
         except Exception as e:
