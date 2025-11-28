@@ -278,6 +278,98 @@ EOF
 
 function create_archive() {
     echo -e "${YELLOW}[4/5] 创建 7z 压缩包...${RESET}"
+    echo ""
+    
+    # 计算临时目录大小
+    echo "  正在计算文件大小..."
+    TEMP_SIZE_KB=$(du -sk "$TEMP_DIR" 2>/dev/null | cut -f1 || echo "0")
+    TEMP_SIZE_MB=$((TEMP_SIZE_KB / 1024))
+    
+    echo -e "${GREEN}  ✓ 待压缩文件大小: ${TEMP_SIZE_MB} MB${RESET}"
+    echo ""
+    
+    # 检测 CPU 核心数
+    CPU_CORES=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo "4")
+    
+    # 让用户选择压缩级别
+    echo -e "${BLUE}请选择压缩级别:${RESET}"
+    echo ""
+    echo "  1. 快速 (-mx3)   - 速度最快，压缩率约 45%"
+    echo "  2. 标准 (-mx5)   - 速度快，压缩率约 50%"
+    echo "  3. 高级 (-mx7)   - 平衡，压缩率约 55% (推荐)"
+    echo "  4. 最高 (-mx9)   - 最慢，压缩率约 60%"
+    echo ""
+    
+    # 计算预估时间（基于经验值）
+    # 基准: 100MB 在 4 核 CPU 上的压缩时间
+    local base_time_mx3=10   # 秒
+    local base_time_mx5=20   # 秒
+    local base_time_mx7=40   # 秒
+    local base_time_mx9=120  # 秒
+    
+    # 根据文件大小和 CPU 核心数调整
+    local size_factor=$((TEMP_SIZE_MB / 100))
+    if [ $size_factor -lt 1 ]; then
+        size_factor=1
+    fi
+    local cpu_factor=$((4 / CPU_CORES))
+    if [ $cpu_factor -lt 1 ]; then
+        cpu_factor=1
+    fi
+    
+    local est_time_mx3=$((base_time_mx3 * size_factor * cpu_factor))
+    local est_time_mx5=$((base_time_mx5 * size_factor * cpu_factor))
+    local est_time_mx7=$((base_time_mx7 * size_factor * cpu_factor))
+    local est_time_mx9=$((base_time_mx9 * size_factor * cpu_factor))
+    
+    # 格式化时间显示
+    function format_time() {
+        local seconds=$1
+        if [ $seconds -lt 60 ]; then
+            echo "${seconds} 秒"
+        elif [ $seconds -lt 3600 ]; then
+            local minutes=$((seconds / 60))
+            local secs=$((seconds % 60))
+            echo "${minutes} 分 ${secs} 秒"
+        else
+            local hours=$((seconds / 3600))
+            local minutes=$(((seconds % 3600) / 60))
+            echo "${hours} 小时 ${minutes} 分"
+        fi
+    }
+    
+    echo -e "${YELLOW}预计压缩时间 (${CPU_CORES} 核 CPU):${RESET}"
+    echo "  1. 快速: $(format_time $est_time_mx3)"
+    echo "  2. 标准: $(format_time $est_time_mx5)"
+    echo "  3. 高级: $(format_time $est_time_mx7)"
+    echo "  4. 最高: $(format_time $est_time_mx9)"
+    echo ""
+    
+    read -p "请选择 (1-4) [默认: 3]: " compress_choice
+    
+    # 设置压缩级别
+    case $compress_choice in
+        1)
+            COMPRESS_LEVEL="-mx3"
+            COMPRESS_NAME="快速"
+            ;;
+        2)
+            COMPRESS_LEVEL="-mx5"
+            COMPRESS_NAME="标准"
+            ;;
+        4)
+            COMPRESS_LEVEL="-mx9"
+            COMPRESS_NAME="最高"
+            ;;
+        *)
+            COMPRESS_LEVEL="-mx7"
+            COMPRESS_NAME="高级"
+            ;;
+    esac
+    
+    echo ""
+    echo -e "${GREEN}  ✓ 已选择: ${COMPRESS_NAME} 压缩${RESET}"
+    echo ""
     
     # 输出文件名
     OUTPUT_NAME="${APP_NAME}-${APP_VERSION}-Setup"
@@ -289,25 +381,28 @@ function create_archive() {
     # 创建压缩包
     cd "$TEMP_DIR"
     
-    echo "  正在压缩文件（这可能需要几分钟，请耐心等待）..."
-    echo "  提示: 文件越大，压缩时间越长"
-    echo "  使用中等压缩率 (-mx7)，比最高压缩率快 3-5 倍"
+    echo "  开始压缩..."
+    echo "  文件大小: ${TEMP_SIZE_MB} MB"
+    echo "  压缩级别: ${COMPRESS_NAME} (${COMPRESS_LEVEL})"
+    echo "  CPU 核心: ${CPU_CORES} 个"
     echo ""
     echo "  压缩进度:"
     echo "  ----------------------------------------"
     
-    # 使用 -mx7 而不是 -mx9，速度更快，压缩率仍然很好
+    # 记录开始时间
+    START_TIME=$(date +%s)
+    
     # 显示完整输出，不过滤
     if command -v wine &> /dev/null; then
         # 尝试使用 wine
-        if wine "$SEVEN_ZIP" a -mx7 "$ARCHIVE_FILE" * 2>&1; then
+        if wine "$SEVEN_ZIP" a $COMPRESS_LEVEL "$ARCHIVE_FILE" * 2>&1; then
             echo ""
             echo "  ----------------------------------------"
             echo -e "${GREEN}  ✓ 压缩包创建成功${RESET}"
         else
             echo -e "${RED}  ✗ Wine 运行失败，尝试直接运行...${RESET}"
             # 如果 wine 失败，尝试直接运行（Windows 环境）
-            if "$SEVEN_ZIP" a -mx7 "$ARCHIVE_FILE" *; then
+            if "$SEVEN_ZIP" a $COMPRESS_LEVEL "$ARCHIVE_FILE" *; then
                 echo ""
                 echo "  ----------------------------------------"
                 echo -e "${GREEN}  ✓ 压缩包创建成功${RESET}"
@@ -318,7 +413,7 @@ function create_archive() {
         fi
     else
         # 没有 wine，直接运行（Windows/Git Bash）
-        if "$SEVEN_ZIP" a -mx7 "$ARCHIVE_FILE" *; then
+        if "$SEVEN_ZIP" a $COMPRESS_LEVEL "$ARCHIVE_FILE" *; then
             echo ""
             echo "  ----------------------------------------"
             echo -e "${GREEN}  ✓ 压缩包创建成功${RESET}"
@@ -328,13 +423,25 @@ function create_archive() {
         fi
     fi
     
+    # 计算实际用时
+    END_TIME=$(date +%s)
+    ACTUAL_TIME=$((END_TIME - START_TIME))
+    
     cd "$SCRIPT_DIR"
     
-    # 显示压缩包大小
+    # 显示压缩统计
     if [ -f "$ARCHIVE_FILE" ]; then
         local size=$(stat -f%z "$ARCHIVE_FILE" 2>/dev/null || stat -c%s "$ARCHIVE_FILE" 2>/dev/null || echo "0")
         local size_mb=$((size / 1048576))
-        echo "  压缩包大小: ${size_mb} MB"
+        local compress_ratio=$((100 - (size_mb * 100 / TEMP_SIZE_MB)))
+        
+        echo ""
+        echo -e "${BLUE}压缩统计:${RESET}"
+        echo "  原始大小: ${TEMP_SIZE_MB} MB"
+        echo "  压缩后: ${size_mb} MB"
+        echo "  压缩率: ${compress_ratio}%"
+        echo "  实际用时: $(format_time $ACTUAL_TIME)"
+        echo "  压缩级别: ${COMPRESS_NAME}"
     fi
     
     echo ""
