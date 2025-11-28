@@ -26,7 +26,7 @@ print(f"[DEBUG] Entry point exists: {os.path.exists(os.path.join(project_root, '
 
 # Define hidden imports that PyInstaller may not automatically detect
 hidden_imports = [
-    # PySide6 (Qt framework)
+    # PySide6 (Qt framework) - 只包含实际使用的模块
     'PySide6.QtCore',
     'PySide6.QtGui',
     'PySide6.QtWidgets',
@@ -37,14 +37,15 @@ hidden_imports = [
     'PIL.Image',
     'PIL.ImageQt',
     
-    # Excel export
+    # Excel export (延迟加载，但需要在hiddenimports中)
     'openpyxl',
     'openpyxl.cell._writer',
+    'openpyxl.styles',
     
-    # PDF processing
+    # PDF processing (延迟加载，但需要在hiddenimports中)
     'fitz',  # PyMuPDF
     
-    # OCR engines - Aliyun
+    # OCR engines - Aliyun (延迟加载，但需要在hiddenimports中)
     'alibabacloud_ocr_api20210707',
     'alibabacloud_ocr_api20210707.client',
     'alibabacloud_ocr_api20210707.models',
@@ -54,8 +55,11 @@ hidden_imports = [
     'alibabacloud_tea_util',
     'alibabacloud_openapi_util',
     
-    # OCR engines - OpenAI/DeepSeek
+    # OCR engines - OpenAI/DeepSeek (延迟加载，但需要在hiddenimports中)
     'openai',
+    
+    # Dependency manager
+    'dependency_manager',
     
     # Standard library (sometimes needed)
     'json',
@@ -82,15 +86,117 @@ datas = [
 
 # Define binaries to exclude (reduce package size)
 excludes = [
-    'tkinter',      # Not used
-    'matplotlib',   # Not used
-    'scipy',        # Not used
-    'pandas',       # Not used
-    'IPython',      # Not used
-    'jupyter',      # Not used
-    'notebook',     # Not used
-    'pytest',       # Not used
-    'setuptools',   # Not needed at runtime
+    # GUI frameworks (not used)
+    'tkinter',
+    'wx',
+    'PyQt5',
+    'PyQt6',
+    
+    # PySide6 modules (not used) - 只保留QtCore, QtGui, QtWidgets
+    'PySide6.Qt3DAnimation',
+    'PySide6.Qt3DCore',
+    'PySide6.Qt3DExtras',
+    'PySide6.Qt3DInput',
+    'PySide6.Qt3DLogic',
+    'PySide6.Qt3DRender',
+    'PySide6.QtBluetooth',
+    'PySide6.QtCharts',
+    'PySide6.QtConcurrent',
+    'PySide6.QtDataVisualization',
+    'PySide6.QtDBus',
+    'PySide6.QtDesigner',
+    'PySide6.QtHelp',
+    'PySide6.QtLocation',
+    'PySide6.QtMultimedia',
+    'PySide6.QtMultimediaWidgets',
+    'PySide6.QtNetwork',
+    'PySide6.QtNetworkAuth',
+    'PySide6.QtNfc',
+    'PySide6.QtOpenGL',
+    'PySide6.QtOpenGLWidgets',
+    'PySide6.QtPositioning',
+    'PySide6.QtPrintSupport',
+    'PySide6.QtQml',
+    'PySide6.QtQuick',
+    'PySide6.QtQuick3D',
+    'PySide6.QtQuickControls2',
+    'PySide6.QtQuickWidgets',
+    'PySide6.QtRemoteObjects',
+    'PySide6.QtScxml',
+    'PySide6.QtSensors',
+    'PySide6.QtSerialPort',
+    'PySide6.QtSql',
+    'PySide6.QtStateMachine',
+    'PySide6.QtSvg',
+    'PySide6.QtSvgWidgets',
+    'PySide6.QtTest',
+    'PySide6.QtTextToSpeech',
+    'PySide6.QtUiTools',
+    'PySide6.QtWebChannel',
+    'PySide6.QtWebEngine',
+    'PySide6.QtWebEngineCore',
+    'PySide6.QtWebEngineWidgets',
+    'PySide6.QtWebSockets',
+    'PySide6.QtXml',
+    
+    # Scientific computing (not used)
+    'matplotlib',
+    'scipy',
+    'pandas',
+    'numpy.testing',
+    'numpy.distutils',
+    
+    # Development tools (not needed at runtime)
+    'IPython',
+    'jupyter',
+    'notebook',
+    'pytest',
+    'unittest',
+    'doctest',
+    'pdb',
+    'pydoc',
+    'setuptools',
+    'pip',
+    'wheel',
+    'distutils',
+    
+    # Web frameworks (not used)
+    'flask',
+    'django',
+    'tornado',
+    'aiohttp',
+    
+    # Database drivers (not used, we use SQLite via ctypes)
+    'psycopg2',
+    'pymysql',
+    'sqlalchemy',
+    
+    # XML processing (not used)
+    'lxml',
+    'xml.dom',
+    'xml.sax',
+    
+    # Compression (not used, we use built-in)
+    'bz2',
+    'lzma',
+    
+    # Networking (not used directly)
+    'asyncio',
+    'email',
+    'ftplib',
+    'http.server',
+    'xmlrpc',
+    
+    # Multimedia (not used)
+    'wave',
+    'audioop',
+    'aifc',
+    'sunau',
+    
+    # Other unused modules
+    'curses',
+    'readline',
+    'rlcompleter',
 ]
 
 # Analysis: Scan the application and collect all dependencies
