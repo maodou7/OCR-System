@@ -8,17 +8,22 @@ import json
 import ctypes
 from pathlib import Path
 from typing import Dict, List, Optional
-from config import OCRRect
+from config import OCRRect, get_resource_path, get_executable_dir
 
 
 class OCRCacheManager:
     """OCR缓存管理器"""
     
-    def __init__(self, db_path: str = ".ocr_cache/ocr_cache.db"):
+    def __init__(self, db_path: str = None):
         """
         初始化缓存管理器
-        :param db_path: 数据库文件路径
+        :param db_path: 数据库文件路径（默认使用可执行文件目录下的.ocr_cache/ocr_cache.db）
         """
+        # 如果未指定路径，使用可执行文件目录（支持PyInstaller打包）
+        if db_path is None:
+            exe_dir = get_executable_dir()
+            db_path = os.path.join(exe_dir, ".ocr_cache", "ocr_cache.db")
+        
         self.db_path = db_path
         self.engine = None
         self._lib = None
@@ -37,9 +42,6 @@ class OCRCacheManager:
     
     def _load_engine(self):
         """加载C++共享库"""
-        # 查找共享库文件
-        base_dir = Path(__file__).parent
-        
         # 根据操作系统确定库文件名
         import platform
         system = platform.system()
@@ -53,14 +55,14 @@ class OCRCacheManager:
         else:
             raise RuntimeError(f"Unsupported platform: {system}")
         
-        # 库文件位于models目录下
-        lib_path = base_dir / "models" / lib_name
+        # 库文件位于models目录下（支持PyInstaller打包）
+        lib_path = get_resource_path(os.path.join("models", lib_name))
         
-        if not lib_path.exists():
+        if not os.path.exists(lib_path):
             raise FileNotFoundError(f"OCR cache engine library not found: {lib_path}")
         
         # 加载库
-        self._lib = ctypes.CDLL(str(lib_path))
+        self._lib = ctypes.CDLL(lib_path)
         
         # 定义函数签名
         # void* ocr_engine_init(const char* db_path)

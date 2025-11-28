@@ -8,6 +8,7 @@ import os
 import tempfile
 from PIL import Image
 from PPOCR_api import GetOcrApi
+from config import get_resource_path
 
 
 class PaddleOCREngine:
@@ -18,9 +19,8 @@ class PaddleOCREngine:
         import sys
         import subprocess
         
-        # 确定 PaddleOCR-json.exe 路径
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        exe_path = os.path.join(current_dir, "models", "PaddleOCR-json", "PaddleOCR-json_v1.4.1", "PaddleOCR-json.exe")
+        # 确定 PaddleOCR-json.exe 路径（支持PyInstaller打包）
+        exe_path = get_resource_path(os.path.join("models", "PaddleOCR-json", "PaddleOCR-json_v1.4.1", "PaddleOCR-json.exe"))
         
         if not os.path.exists(exe_path):
             raise Exception(f"PaddleOCR-json.exe 不存在: {exe_path}")

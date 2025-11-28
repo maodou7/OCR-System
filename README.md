@@ -39,7 +39,7 @@
 - 🐛 **严重Bug修复**：修复删除区域时所有文本被清空的问题
 - ✅ **信号处理优化**：临时断开textChanged信号避免误触发
 - 💾 **删除后自动保存**：删除区域后立即保存到缓存引擎
-- � **目录结构优化**：C++引擎移动到models/目录统一管理
+- 📁 **目录结构优化**：C++引擎移动到models/目录统一管理
 - ✓ **测试验证完成**：删除、切换、导出等场景全部验证通过
 
 ---
@@ -272,18 +272,26 @@ OCR-System/
 ├── ocr_engine_aliyun_new.py    # 阿里云OCR引擎
 ├── ocr_engine_deepseek.py      # DeepSeek OCR引擎
 │
-├── ocr_cache_manager.py        # 🆕 Python缓存管理器
+├── ocr_cache_manager.py        # Python缓存管理器
 ├── models/                     # 模型和引擎目录
-│   ├── libocr_cache.so         # 🆕 C++缓存引擎（编译输出）
-│   ├── cpp_engine/             # 🆕 C++引擎源码
+│   ├── libocr_cache.so         # C++缓存引擎（Linux）
+│   ├── ocr_cache.dll           # C++缓存引擎（Windows）
+│   ├── cpp_engine/             # C++引擎源码
 │   │   ├── ocr_cache_engine.h  #     C API接口
 │   │   ├── ocr_cache_engine.cpp#     核心实现
 │   │   ├── sqlite3.c/h         #     嵌入式SQLite
 │   │   ├── CMakeLists.txt      #     构建配置
-│   │   ├── build.sh            #     编译脚本
+│   │   ├── build.sh            #     编译脚本（Linux/macOS）
 │   │   └── README.md           #     技术文档
 │   ├── PaddleOCR-json/         # PaddleOCR引擎模型
 │   └── RapidOCR-json/          # RapidOCR引擎模型
+│
+├── Pack/                       # 打包配置目录
+│   └── Pyinstaller/            # PyInstaller打包配置
+│       ├── ocr_system.spec     # 打包规格文件
+│       ├── build_package.bat   # Windows打包脚本
+│       ├── build_package.sh    # Linux/macOS打包脚本
+│       └── README.md           # 打包说明文档
 │
 ├── requirements.txt            # 依赖列表
 ├── .env.example                # 环境变量示例
@@ -298,14 +306,16 @@ OCR-System/
 
 - **GUI框架**: PySide6 (Qt 6.6+)
 - **OCR引擎**: 
-  - PaddleOCR 2.7+ / 3.x（智能版本适配）
-  - RapidOCR (ONNX Runtime)
+  - PaddleOCR-json v1.4.1（C++高性能引擎）
+  - RapidOCR-json v0.2.0（C++轻量级引擎）
   - 阿里云OCR API 2021-07-07
   - DeepSeek OCR（OpenAI兼容接口）
+- **缓存引擎**: C++ + SQLite3（嵌入式数据库）
 - **图片处理**: Pillow 10.0+
 - **PDF处理**: PyMuPDF 1.23+（按需导入）
 - **Excel导出**: openpyxl 3.1+（按需导入）
 - **数值计算**: NumPy 1.24+（按需导入）
+- **打包工具**: PyInstaller 6.0+
 
 ---
 
@@ -360,6 +370,40 @@ OCR-System/
 
 ### v0.01 (2025-11-20)
 - ✨ 初始版本发布
+
+---
+
+## 📦 打包部署
+
+本项目支持使用PyInstaller打包为独立可执行文件，无需Python环境即可运行。
+
+### 打包说明
+
+详细的打包配置和说明文档位于 `Pack/Pyinstaller/` 目录：
+
+- **ocr_system.spec** - PyInstaller打包规格文件
+- **build_package.bat** - Windows一键打包脚本
+- **build_package.sh** - Linux/macOS一键打包脚本
+- **README.md** - 完整的打包使用指南
+
+### 快速打包
+
+**Windows:**
+```bash
+cd Pack/Pyinstaller
+build_package.bat
+```
+
+**Linux/macOS:**
+```bash
+cd Pack/Pyinstaller
+chmod +x build_package.sh
+./build_package.sh
+```
+
+打包后的可执行文件位于 `Pack/Pyinstaller/dist/` 目录。
+
+更多详细信息请参考 `Pack/Pyinstaller/README.md`。
 
 ---
 
@@ -429,12 +473,17 @@ DEEPSEEK_OCR_PROMPT = '<image>\nFree OCR.'  # 确保使用Free OCR模式
 
 本项目使用了以下优秀的开源项目：
 
+- [PaddleOCR-json](https://github.com/hiroi-sora/PaddleOCR-json) - 高性能C++版PaddleOCR封装
+- [RapidOCR-json](https://github.com/hiroi-sora/RapidOCR-json) - 轻量级C++版RapidOCR封装
 - [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) - 百度飞桨OCR框架
 - [RapidOCR](https://github.com/RapidAI/RapidOCR) - 快速OCR引擎
+- [SQLite](https://www.sqlite.org/) - 嵌入式数据库引擎
 - [PySide6](https://www.qt.io/qt-for-python) - Qt for Python
 - [OpenAI Python SDK](https://github.com/openai/openai-python) - API接口库
 
-特别感谢硅基流动平台提供的DeepSeek OCR限免服务！
+特别感谢：
+- 硅基流动平台提供的DeepSeek OCR限免服务
+- hiroi-sora 提供的高性能C++引擎封装
 
 ---
 

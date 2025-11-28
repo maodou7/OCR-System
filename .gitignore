@@ -30,8 +30,11 @@ portable_python/
 # IDE 和编辑器
 .vscode/
 .idea/
+.kiro
+.ocr_cache
 .windsurf/
 .agent/
+tmp/
 *.swp
 *.swo
 *~
@@ -85,6 +88,7 @@ desktop.ini
 
 # 打包文件
 *.spec
+!Pack/Pyinstaller/ocr_system.spec
 *.manifest
 
 # 批处理和脚本（临时）
@@ -129,7 +133,7 @@ Umi-OCR-main/
 *.ipynb
 
 # PyInstaller
-*.spec
+# *.spec (已在上面配置)
 
 # 数据库
 *.db

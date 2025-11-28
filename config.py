@@ -39,8 +39,56 @@
 """
 
 import os
+import sys
 import json
 from pathlib import Path
+
+
+def get_resource_path(relative_path):
+    """
+    获取资源文件的绝对路径（支持PyInstaller打包）
+    
+    PyInstaller打包后，资源文件会被解压到临时目录sys._MEIPASS中。
+    此函数会自动处理打包和开发环境的路径差异。
+    
+    :param relative_path: 相对于项目根目录的路径
+    :return: 资源文件的绝对路径
+    """
+    try:
+        # PyInstaller创建临时文件夹，路径存储在sys._MEIPASS中
+        base_path = sys._MEIPASS
+    except AttributeError:
+        # 开发环境：使用脚本所在目录
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    
+    return os.path.join(base_path, relative_path)
+
+
+def is_frozen():
+    """
+    检测是否运行在PyInstaller打包环境中
+    
+    :return: True表示已打包，False表示开发环境
+    """
+    return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+
+
+def get_executable_dir():
+    """
+    获取可执行文件所在目录
+    
+    用于存放外部配置文件、缓存数据等用户可修改的文件。
+    - 打包环境：返回.exe文件所在目录
+    - 开发环境：返回脚本所在目录
+    
+    :return: 可执行文件目录的绝对路径
+    """
+    if is_frozen():
+        # 打包环境：sys.executable是.exe文件路径
+        return os.path.dirname(os.path.abspath(sys.executable))
+    else:
+        # 开发环境：使用脚本所在目录
+        return os.path.dirname(os.path.abspath(__file__))
 
 
 class Config:
@@ -129,12 +177,12 @@ class Config:
     @classmethod
     def _get_config_dir(cls):
         """获取配置目录路径（便携式）"""
-        # 首选：项目本地目录（便携式）
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        local_config_dir = os.path.join(script_dir, ".ocr_system_config")
+        # 首选：可执行文件目录（便携式，支持PyInstaller打包）
+        exe_dir = get_executable_dir()
+        local_config_dir = os.path.join(exe_dir, ".ocr_system_config")
         
         # 如果本地配置目录存在或可创建，使用它
-        if os.path.exists(local_config_dir) or os.access(script_dir, os.W_OK):
+        if os.path.exists(local_config_dir) or os.access(exe_dir, os.W_OK):
             return local_config_dir
         
         # 回退：用户主目录

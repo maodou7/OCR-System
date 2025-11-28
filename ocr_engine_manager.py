@@ -17,7 +17,7 @@ from PIL import Image
 
 # 延迟导入各引擎（提高启动速度）
 # from ocr_engine_aliyun_new import AliyunOCRNewEngine  # 改为按需导入
-from config import Config, OCRRect
+from config import Config, OCRRect, get_resource_path
 
 
 class EngineType(Enum):
@@ -172,7 +172,7 @@ class OCREngineManager:
         
         # 检查 PaddleOCR（C++ 引擎）
         enabled = getattr(Config, 'PADDLE_ENABLED', True)
-        paddle_exe = os.path.join(os.path.dirname(__file__), "models", "PaddleOCR-json", "PaddleOCR-json_v1.4.1", "PaddleOCR-json.exe")
+        paddle_exe = get_resource_path(os.path.join("models", "PaddleOCR-json", "PaddleOCR-json_v1.4.1", "PaddleOCR-json.exe"))
         has_exe = os.path.exists(paddle_exe)
         
         print(f"[PaddleOCR] 配置检查: ENABLED={enabled}, 可执行文件存在={has_exe}")
@@ -185,7 +185,7 @@ class OCREngineManager:
         
         # 检查 RapidOCR（C++ 引擎）
         enabled = getattr(Config, 'RAPID_ENABLED', True)
-        rapid_exe = os.path.join(os.path.dirname(__file__), "models", "RapidOCR-json", "RapidOCR-json_v0.2.0", "RapidOCR-json.exe")
+        rapid_exe = get_resource_path(os.path.join("models", "RapidOCR-json", "RapidOCR-json_v0.2.0", "RapidOCR-json.exe"))
         has_exe = os.path.exists(rapid_exe)
         
         print(f"[RapidOCR] 配置检查: ENABLED={enabled}, 可执行文件存在={has_exe}")
