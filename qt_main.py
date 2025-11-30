@@ -14,8 +14,12 @@ from PySide6.QtWidgets import (
 from config import Config, OCRRect
 from utils import FileUtils, ImageUtils, ExcelExporter
 from PIL import Image
-from ocr_cache_manager import OCRCacheManager
+from cache_manager_wrapper import CacheManagerWrapper
 from dependency_manager import DependencyManager
+from optimized_image_loader import OptimizedImageLoader
+from ocr_engine_downloader import OCREngineDownloader
+from ocr_engine_download_dialog import OCREngineDownloadDialog
+import gc
 
 
 class OCRInitWorker(QThread):
@@ -303,25 +307,36 @@ class MainWindow(QMainWindow):
         self._ocr_worker = None  # 后台初始化线程
         self._ocr_tasks = []     # OCR识别任务列表（防止线程被垃圾回收）
         
-        # 初始化缓存管理器
-        try:
-            self.cache_manager = OCRCacheManager()
-        except Exception as e:
-            print(f"缓存管理器初始化失败: {e}")
-            self.cache_manager = None
+        # 初始化缓存管理器（使用安全包装层）
+        # CacheManagerWrapper会自动处理初始化失败，不会抛出异常
+        self.cache_manager = CacheManagerWrapper()
 
         # UI
         self._init_ui()
         
+        # 初始化引擎下载器
+        self.engine_downloader = OCREngineDownloader()
+        
         # 在后台线程中异步初始化OCR引擎（不阻塞UI）
         from PySide6.QtCore import QTimer
-        QTimer.singleShot(100, self._start_ocr_init_thread)
+        QTimer.singleShot(100, self._check_and_init_engines)
         
         # 延迟检查是否恢复会话
         QTimer.singleShot(500, self._check_restore_session)
+        
+        # 设置空闲时内存释放定时器（验证需求: 9.4）
+        self._idle_timer = QTimer()
+        self._idle_timer.timeout.connect(self._on_idle_timeout)
+        self._idle_timer.start(30000)  # 每30秒检查一次
 
     def _init_ui(self):
-        # 工具栏
+        """
+        初始化UI（优化版）
+        
+        只创建关键组件，延迟创建非关键组件以加快启动速度
+        验证需求: 8.3
+        """
+        # 工具栏 - 关键组件，立即创建
         tb = QToolBar("Main")
         self.addToolBar(tb)
 
@@ -344,6 +359,14 @@ class MainWindow(QMainWindow):
         # 添加分隔符
         tb.addSeparator()
         
+        # 添加下载引擎按钮
+        act_download_engine = QAction("⬇️ 下载引擎", self)
+        act_download_engine.triggered.connect(lambda: self._show_download_dialog())
+        tb.addAction(act_download_engine)
+        
+        # 添加分隔符
+        tb.addSeparator()
+        
         # 添加引擎选择下拉框
         tb.addWidget(QLabel("OCR引擎:"))
         self.engine_combo = QComboBox()
@@ -355,6 +378,12 @@ class MainWindow(QMainWindow):
         self.engine_status_label.setStyleSheet("color: orange; font-weight: bold;")
         tb.addWidget(self.engine_status_label)
         
+        # 添加缓存状态标签（可选）
+        tb.addSeparator()
+        self.cache_status_label = QLabel()
+        self._update_cache_status_label()
+        tb.addWidget(self.cache_status_label)
+        
         # 初始化下拉框（OCR引擎未初始化时的占位）
         self.engine_combo.addItem("初始化中...")
         self.engine_combo.setEnabled(False)  # 初始化完成前禁用
@@ -362,7 +391,7 @@ class MainWindow(QMainWindow):
         # 绑定信号（初始化完成后才会生效）
         self.engine_combo.currentTextChanged.connect(self.on_engine_changed)
 
-        # 中心布局
+        # 中心布局 - 关键组件，立即创建
         central = QWidget(self)
         self.setCentralWidget(central)
         h = QHBoxLayout(central)
@@ -381,10 +410,12 @@ class MainWindow(QMainWindow):
         left_v.addWidget(QLabel("识别结果（可编辑）:"))
         self.result_text = QTextEdit()
         self.result_text.setPlaceholderText("OCR识别结果将显示在此，支持手动编辑修正...")
-        self.result_text.textChanged.connect(self.on_result_text_changed)
+        # 延迟连接信号（使用QTimer）
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: self.result_text.textChanged.connect(self.on_result_text_changed))
         left_v.addWidget(self.result_text, stretch=0)
 
-        # 右侧：文件表
+        # 右侧：文件表 - 延迟初始化表格内容
         right = QWidget()
         right_v = QVBoxLayout(right)
         self.table = QTableWidget(0, 3)
@@ -395,12 +426,9 @@ class MainWindow(QMainWindow):
         self.table.setColumnWidth(1, 250)  # 文件名列：250px
         self.table.setColumnWidth(2, 80)   # 状态列：80px
         
-        # 设置列的拉伸模式
-        from PySide6.QtWidgets import QHeaderView
-        header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Fixed)      # 序号固定宽度
-        header.setSectionResizeMode(1, QHeaderView.Stretch)    # 文件名自适应拉伸
-        header.setSectionResizeMode(2, QHeaderView.Fixed)      # 状态固定宽度
+        # 延迟设置列的拉伸模式（使用QTimer）
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, self._init_table_header)
         
         self.table.cellClicked.connect(self.on_table_clicked)  # 单击切换
         self.table.cellDoubleClicked.connect(self.on_table_double_clicked)  # 双击（保留）
@@ -411,9 +439,58 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
 
-        # 状态栏
+        # 状态栏 - 关键组件，立即创建
         sb = QStatusBar()
         self.setStatusBar(sb)
+    
+    def _init_table_header(self):
+        """
+        延迟初始化表格头部（非关键组件）
+        
+        验证需求: 8.3
+        """
+        from PySide6.QtWidgets import QHeaderView
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Fixed)      # 序号固定宽度
+        header.setSectionResizeMode(1, QHeaderView.Stretch)    # 文件名自适应拉伸
+        header.setSectionResizeMode(2, QHeaderView.Fixed)      # 状态固定宽度
+    
+    def _check_and_init_engines(self):
+        """
+        检查OCR引擎是否已安装，如果没有则提示下载
+        
+        验证需求: 6.1
+        """
+        # 检查是否有任何引擎已安装
+        has_any_engine = False
+        for engine_type in ['paddle', 'rapid']:
+            if self.engine_downloader.is_installed(engine_type):
+                has_any_engine = True
+                break
+        
+        if not has_any_engine:
+            # 没有任何引擎，提示用户下载
+            reply = QMessageBox.question(
+                self,
+                "首次启动",
+                "检测到您是首次使用本程序，需要下载OCR引擎才能使用识别功能。\n\n"
+                "推荐下载 RapidOCR（轻量级，45MB）\n"
+                "或 PaddleOCR（高精度，562MB）\n\n"
+                "是否现在下载？\n\n"
+                "点击 Yes 立即下载\n"
+                "点击 No 稍后下载（可在菜单中手动下载）",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            
+            if reply == QMessageBox.Yes:
+                # 打开下载对话框，默认选择RapidOCR
+                self._show_download_dialog('rapid')
+            else:
+                self.statusBar().showMessage("提示: 请在工具栏中下载OCR引擎后使用识别功能", 5000)
+        else:
+            # 有引擎，正常初始化
+            self._start_ocr_init_thread()
     
     def _start_ocr_init_thread(self):
         """启动后台线程初始化OCR引擎（不阻塞UI）"""
@@ -498,7 +575,13 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("警告：OCR引擎未就绪")
     
     def _update_engine_combo(self):
-        """更新引擎下拉框菜单"""
+        """
+        更新引擎下拉框菜单
+        
+        显示所有引擎（包括未安装的），未安装的引擎标记为"未安装"
+        
+        验证需求: 6.5
+        """
         # 暂时阻塞信号，避免触发on_engine_changed
         self.engine_combo.blockSignals(True)
         self.engine_combo.clear()
@@ -509,18 +592,30 @@ class MainWindow(QMainWindow):
             self.engine_combo.blockSignals(False)
             return
         
+        # 获取所有引擎（包括未安装的）
+        all_engines = {
+            'paddle': 'PaddleOCR（高精度C++版）',
+            'rapid': 'RapidOCR（轻量级C++版）',
+            'aliyun': '阿里云OCR',
+            'deepseek': 'DeepSeek OCR'
+        }
+        
         available = self.ocr_manager.get_available_engines()
+        available_types = {engine_type for engine_type, _, _, _ in available}
         
-        if not available:
-            self.engine_combo.addItem("没有可用引擎")
-            self.engine_combo.setEnabled(False)
-            self.engine_combo.blockSignals(False)
-            return
-        
-        # 添加可用引擎
-        for engine_type, name, description, specs in available:
-            display_text = f"{name} ({specs})"
-            self.engine_combo.addItem(display_text, engine_type)
+        # 添加所有引擎到下拉框
+        for engine_type, display_name in all_engines.items():
+            if engine_type in available_types:
+                # 已安装且可用
+                display_text = f"{display_name}"
+                self.engine_combo.addItem(display_text, engine_type)
+            else:
+                # 未安装或不可用
+                # 检查是否是本地引擎（可下载）
+                if engine_type in ['paddle', 'rapid']:
+                    if not self.engine_downloader.is_installed(engine_type):
+                        display_text = f"{display_name} [未安装 - 点击下载]"
+                        self.engine_combo.addItem(display_text, engine_type)
         
         # 设置当前引擎为下拉框的值
         if self.ocr_manager.current_engine_type:
@@ -537,7 +632,13 @@ class MainWindow(QMainWindow):
         self._update_engine_status_label()
     
     def on_engine_changed(self, display_text: str):
-        """处理引擎选择变化"""
+        """
+        处理引擎选择变化
+        
+        如果选择的是未安装的引擎，触发下载流程
+        
+        验证需求: 6.5
+        """
         if not display_text or display_text == "没有可用引擎" or display_text == "初始化中...":
             return
         
@@ -552,6 +653,37 @@ class MainWindow(QMainWindow):
         
         engine_type = self.engine_combo.itemData(index)
         if not engine_type:  # 无效的引擎类型
+            return
+        
+        # 检查引擎是否已安装
+        if engine_type in ['paddle', 'rapid'] and not self.engine_downloader.is_installed(engine_type):
+            # 未安装的本地引擎，提示下载
+            engine_name = self.engine_downloader.ENGINES[engine_type]['display_name']
+            size_mb = self.engine_downloader.ENGINES[engine_type]['size_mb']
+            
+            reply = QMessageBox.question(
+                self,
+                "下载引擎",
+                f"{engine_name} 尚未安装\n\n"
+                f"大小: {size_mb} MB\n\n"
+                f"是否现在下载？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            
+            if reply == QMessageBox.Yes:
+                # 打开下载对话框
+                self._show_download_dialog(engine_type)
+            
+            # 恢复之前的选择
+            if self.ocr_manager.current_engine_type:
+                for i in range(self.engine_combo.count()):
+                    if self.engine_combo.itemData(i) == self.ocr_manager.current_engine_type.value:
+                        self.engine_combo.blockSignals(True)
+                        self.engine_combo.setCurrentIndex(i)
+                        self.engine_combo.blockSignals(False)
+                        break
+            
             return
         
         # 切换引擎
@@ -592,6 +724,88 @@ class MainWindow(QMainWindow):
         else:
             self.engine_status_label.setText("引擎: 未初始化")
             self.engine_status_label.setStyleSheet("color: gray; font-weight: bold;")
+    
+    def _update_cache_status_label(self):
+        """更新缓存状态标签"""
+        if not self.cache_manager:
+            self.cache_status_label.setText("缓存: 未初始化")
+            self.cache_status_label.setStyleSheet("color: gray;")
+            return
+        
+        status = self.cache_manager.get_status()
+        
+        if status.backend_type == "cpp_engine":
+            self.cache_status_label.setText("缓存: ✓ C++引擎")
+            self.cache_status_label.setStyleSheet("color: green;")
+        elif status.backend_type == "memory":
+            self.cache_status_label.setText("缓存: ⚠ 内存模式")
+            self.cache_status_label.setStyleSheet("color: orange;")
+            # 设置工具提示显示详细信息
+            if status.init_error:
+                tooltip = f"C++引擎不可用，已降级到内存缓存\n错误: {status.init_error.error_type}"
+                if status.init_error.suggestions:
+                    tooltip += f"\n建议: {status.init_error.suggestions[0]}"
+                self.cache_status_label.setToolTip(tooltip)
+        else:
+            self.cache_status_label.setText("缓存: 已禁用")
+            self.cache_status_label.setStyleSheet("color: gray;")
+    
+    def _show_download_dialog(self, engine_type: str = None):
+        """
+        显示引擎下载对话框
+        
+        :param engine_type: 预选的引擎类型（可选）
+        
+        验证需求: 6.2
+        """
+        dialog = OCREngineDownloadDialog(self, engine_type)
+        dialog.download_completed.connect(self._on_engine_downloaded)
+        dialog.exec()
+    
+    def _on_engine_downloaded(self, engine_type: str):
+        """
+        引擎下载完成回调
+        
+        自动配置引擎：
+        1. 更新配置文件启用引擎
+        2. 重新检测引擎可用性
+        3. 初始化引擎实例
+        
+        :param engine_type: 下载完成的引擎类型
+        
+        验证需求: 6.4
+        """
+        self.statusBar().showMessage(f"✓ {engine_type} 引擎下载完成，正在配置...", 3000)
+        
+        # 步骤1: 更新配置文件启用引擎
+        from config import Config
+        config_key = f"{engine_type.upper()}_ENABLED"
+        Config.set_config_value(config_key, True)
+        
+        # 步骤2: 如果OCR管理器还未初始化，现在初始化
+        if not self._ocr_initialized:
+            self._start_ocr_init_thread()
+        else:
+            # 步骤3: 如果已初始化，重新检查引擎可用性
+            self.ocr_manager._check_engine_availability()
+            
+            # 步骤4: 更新UI
+            self._update_engine_combo()
+            self._update_engine_status_label()
+            
+            # 步骤5: 如果当前没有可用引擎，自动切换到新下载的引擎
+            if not self.ocr_manager.current_engine or not self.ocr_manager.is_ready():
+                if self.ocr_manager.set_engine(engine_type):
+                    self.ocr = self.ocr_manager.current_engine
+                    self._update_engine_combo()
+                    self._update_engine_status_label()
+                    self.statusBar().showMessage(f"✓ 已自动切换到 {engine_type} 引擎", 3000)
+        
+        QMessageBox.information(
+            self,
+            "配置完成",
+            f"{engine_type.upper()} 引擎已下载并配置完成，可以开始使用了！"
+        )
 
     # ---- 文件操作 ----
     def open_files(self):
@@ -648,6 +862,16 @@ class MainWindow(QMainWindow):
                 "rects": self.rects.copy(),
                 "status": self.table.item(self.cur_index, 2).text() if self.table.item(self.cur_index, 2) else "待处理"
             }
+            
+            # 释放前一个图像的内存（验证需求: 9.1, 9.3）
+            if self.cur_pil:
+                OptimizedImageLoader.release_image(self.cur_pil)
+                self.cur_pil = None
+            if self.cur_pix:
+                self.cur_pix = None
+            
+            # 触发垃圾回收（验证需求: 9.4）
+            OptimizedImageLoader.trigger_gc()
         
         self.cur_index = idx
         path = self.files[idx]
@@ -760,6 +984,9 @@ class MainWindow(QMainWindow):
             }
             # 自动保存到缓存
             self._auto_save_cache()
+        
+        # OCR完成后清理临时数据（验证需求: 9.3）
+        OptimizedImageLoader.trigger_gc()
             
         self.statusBar().showMessage("✓ 识别完成", 2000)
         self.update_current_status("已识别")
@@ -996,80 +1223,125 @@ class MainWindow(QMainWindow):
 
 
     def _auto_save_cache(self):
-        """自动保存缓存"""
+        """
+        自动保存缓存
+        
+        使用CacheManagerWrapper，不会抛出异常
+        验证需求: 1.1, 5.1
+        """
         if not self.cache_manager:
             return
         
-        try:
-            # 保存当前文件的结果
-            if self.cur_index >= 0 and self.cur_index < len(self.files):
-                current_file = self.files[self.cur_index]
-                if current_file in self.all_ocr_results:
-                    result = self.all_ocr_results[current_file]
-                    self.cache_manager.save_result(
-                        current_file,
-                        result["rects"],
-                        result["status"]
-                    )
-            
-            # 保存会话信息
-            self.cache_manager.save_session(self.files, self.cur_index)
-        except Exception as e:
-            print(f"自动保存缓存失败: {e}")
+        # 保存当前文件的结果
+        if self.cur_index >= 0 and self.cur_index < len(self.files):
+            current_file = self.files[self.cur_index]
+            if current_file in self.all_ocr_results:
+                result = self.all_ocr_results[current_file]
+                # CacheManagerWrapper.save_result 不会抛出异常
+                self.cache_manager.save_result(
+                    current_file,
+                    result["rects"],
+                    result["status"]
+                )
+        
+        # 保存会话信息
+        # CacheManagerWrapper.save_session 不会抛出异常
+        self.cache_manager.save_session(self.files, self.cur_index)
     
     def _check_restore_session(self):
-        """检查是否恢复会话"""
+        """
+        检查是否恢复会话
+        
+        使用CacheManagerWrapper，不会抛出异常
+        验证需求: 1.1, 5.1
+        """
         if not self.cache_manager:
             return
         
-        try:
-            if self.cache_manager.has_cache():
-                reply = QMessageBox.question(
-                    self,
-                    "发现未完成任务",
-                    "检测到上次未完成的识别任务，是否继续？\n\n"
-                    "点击 Yes 继续上次任务\n"
-                    "点击 No 开始新任务（清除缓存）",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.Yes
-                )
-                
-                if reply == QMessageBox.Yes:
-                    # 恢复会话
-                    session = self.cache_manager.load_session()
-                    if session:
-                        self.files = session.get("files", [])
-                        cur_index = session.get("cur_index", 0)
-                        
-                        # 加载所有OCR结果
-                        self.all_ocr_results = self.cache_manager.load_all_results()
-                        
-                        # 刷新表格
-                        self.refresh_table()
-                        
-                        # 更新状态
-                        for i, file_path in enumerate(self.files):
-                            if file_path in self.all_ocr_results:
-                                status = self.all_ocr_results[file_path].get("status", "待处理")
-                                self.table.setItem(i, 2, QTableWidgetItem(status))
-                        
-                        # 加载当前索引的图片
-                        if 0 <= cur_index < len(self.files):
-                            self.load_index(cur_index)
-                            self.table.selectRow(cur_index)
-                        
-                        self.statusBar().showMessage("✓ 已恢复上次会话", 3000)
-                else:
-                    # 清除缓存
-                    self.cache_manager.clear_cache()
-                    self.statusBar().showMessage("已清除旧缓存", 2000)
-        except Exception as e:
-            print(f"恢复会话失败: {e}")
+        # CacheManagerWrapper.has_cache 不会抛出异常
+        if self.cache_manager.has_cache():
+            reply = QMessageBox.question(
+                self,
+                "发现未完成任务",
+                "检测到上次未完成的识别任务，是否继续？\n\n"
+                "点击 Yes 继续上次任务\n"
+                "点击 No 开始新任务（清除缓存）",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            
+            if reply == QMessageBox.Yes:
+                # 恢复会话
+                # CacheManagerWrapper.load_session 不会抛出异常
+                session = self.cache_manager.load_session()
+                if session:
+                    self.files = session.get("files", [])
+                    cur_index = session.get("cur_index", 0)
+                    
+                    # 加载所有OCR结果
+                    # CacheManagerWrapper.load_all_results 不会抛出异常
+                    self.all_ocr_results = self.cache_manager.load_all_results()
+                    
+                    # 刷新表格
+                    self.refresh_table()
+                    
+                    # 更新状态
+                    for i, file_path in enumerate(self.files):
+                        if file_path in self.all_ocr_results:
+                            status = self.all_ocr_results[file_path].get("status", "待处理")
+                            self.table.setItem(i, 2, QTableWidgetItem(status))
+                    
+                    # 加载当前索引的图片
+                    if 0 <= cur_index < len(self.files):
+                        self.load_index(cur_index)
+                        self.table.selectRow(cur_index)
+                    
+                    self.statusBar().showMessage("✓ 已恢复上次会话", 3000)
+            else:
+                # 清除缓存
+                # CacheManagerWrapper.clear_cache 不会抛出异常
+                self.cache_manager.clear_cache()
+                self.statusBar().showMessage("已清除旧缓存", 2000)
+    
+    def _on_idle_timeout(self):
+        """
+        空闲定时器回调
+        
+        定期触发垃圾回收以释放内存
+        验证需求: 9.4
+        """
+        # 检查是否有正在进行的OCR任务
+        has_active_tasks = any(worker.isRunning() for worker in self._ocr_tasks)
+        
+        # 如果没有活动任务，触发垃圾回收
+        if not has_active_tasks:
+            OptimizedImageLoader.trigger_gc()
+    
+    def release_memory(self):
+        """
+        主动释放内存
+        
+        在空闲时调用，释放不必要的内存占用
+        验证需求: 9.1, 9.4
+        """
+        # 触发垃圾回收
+        OptimizedImageLoader.trigger_gc()
     
     def closeEvent(self, event):
         """
         窗口关闭事件：保存缓存并清理线程资源
         """
+        # 停止空闲定时器
+        if hasattr(self, '_idle_timer'):
+            self._idle_timer.stop()
+        
+        # 释放图像内存
+        if self.cur_pil:
+            OptimizedImageLoader.release_image(self.cur_pil)
+            self.cur_pil = None
+        if self.cur_pix:
+            self.cur_pix = None
+        
         # 保存当前状态到缓存
         if self.cur_index >= 0 and self.cur_index < len(self.files):
             current_file = self.files[self.cur_index]
@@ -1079,17 +1351,15 @@ class MainWindow(QMainWindow):
             }
         
         # 保存所有结果到缓存
+        # CacheManagerWrapper 不会抛出异常，无需try-except
         if self.cache_manager:
-            try:
-                for file_path, result in self.all_ocr_results.items():
-                    self.cache_manager.save_result(
-                        file_path,
-                        result["rects"],
-                        result["status"]
-                    )
-                self.cache_manager.save_session(self.files, self.cur_index)
-            except Exception as e:
-                print(f"保存缓存失败: {e}")
+            for file_path, result in self.all_ocr_results.items():
+                self.cache_manager.save_result(
+                    file_path,
+                    result["rects"],
+                    result["status"]
+                )
+            self.cache_manager.save_session(self.files, self.cur_index)
         
         # 先关闭所有OCR引擎（关键！防止子进程残留）
         if self.ocr_manager:

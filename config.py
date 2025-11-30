@@ -40,8 +40,8 @@
 
 import os
 import sys
-import json
 from pathlib import Path
+from lightweight_config import LightweightConfig
 
 
 def get_resource_path(relative_path):
@@ -120,30 +120,35 @@ class Config:
     COLOR_RECT_DRAWING = "blue"
     
     # OCR配置
-    OCR_ENGINE = 'paddle'  # 引擎选择：paddle=PaddleOCR（本地运行，极高精度，推荐）, aliyun=阿里云OCR（在线服务，需配置密钥）, rapid=RapidOCR（本地运行，高速度）, deepseek=DeepSeek OCR（在线服务，需配置密钥）
-    # 注意：paddle引擎为本地运行，无需配置密钥，自动检测硬件并选择最优配置
+    OCR_ENGINE = 'rapid'  # 引擎选择：rapid=RapidOCR（本地运行，轻量级，默认）, paddle=PaddleOCR（本地运行，极高精度，可选下载）, aliyun=阿里云OCR（在线服务，需配置密钥）, deepseek=DeepSeek OCR（在线服务，需配置密钥）
+    # 注意：rapid引擎为默认引擎，体积小启动快；paddle引擎精度更高但需单独下载
     OCR_USE_GPU = 'auto'  # GPU设置：'auto'=自动检测，True=强制GPU，False=强制CPU
     OCR_USE_ANGLE_CLS = True  # 是否使用角度分类（处理旋转文字）
     OCR_LANG = 'ch'  # 语言：ch=中英文, en=英文, chinese_cht=繁体中文
     OCR_SHOW_LOG = False  # 是否显示详细日志（建议关闭以提高性能）
     
     # 本地OCR引擎配置,True(启用),False(禁用)
-    PADDLE_ENABLED = True   # 是否启用PaddleOCR（本地引擎，推荐）
-    RAPID_ENABLED = False    # 是否启用RapidOCR（本地引擎，轻量级）
+    PADDLE_ENABLED = True   # 是否启用PaddleOCR（本地引擎，高精度，可选下载）
+    RAPID_ENABLED = True    # 是否启用RapidOCR（本地引擎，轻量级，默认打包）
     
-    # 阿里云OCR配置
+    # ==================== 在线OCR配置（可选插件） ====================
+    # 注意：在线OCR为可选功能，需要配置API密钥才能使用
+    # 如不需要在线OCR，保持ENABLED=False即可，不影响本地OCR功能
+    
+    # 阿里云OCR配置（可选插件）
     ALIYUN_ENABLED = False  # 是否启用阿里云OCR（配置密钥后改为True）
     ALIYUN_ACCESS_KEY_ID = os.getenv('ALIYUN_ACCESS_KEY_ID', '')  # 阿里云AccessKey ID（从环境变量读取，或在此直接填写）
     ALIYUN_ACCESS_KEY_SECRET = os.getenv('ALIYUN_ACCESS_KEY_SECRET', '')  # 阿里云AccessKey Secret（从环境变量读取，或在此直接填写）
     ALIYUN_REGION = 'cn-hangzhou'  # 阿里云区域（根据实际API端点配置）
     ALIYUN_RECOGNITION_TYPE = 'general'  # 识别类型：general=通用, receipt=票据, id_card=身份证等
     
-    # DeepSeek OCR配置（硅基流动平台）
+    # DeepSeek OCR配置（可选插件，硅基流动平台）
     DEEPSEEK_ENABLED = False  # 是否启用DeepSeek OCR（配置密钥后改为True）
     DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', '')  # API密钥（从环境变量读取，或在此直接填写）
     DEEPSEEK_BASE_URL = 'https://api.siliconflow.cn/v1'  # 硅基流动API端点
     DEEPSEEK_MODEL = 'deepseek-ai/DeepSeek-OCR'  # DeepSeek OCR模型名称
     DEEPSEEK_OCR_PROMPT = '<image>\nFree OCR.'  # OCR识别提示词（Free OCR模式：无布局标记，纯文本输出）
+    # ================================================================
     
     # PaddleOCR精度优化参数（已内置到优化版引擎中，这里仅作记录）
     # 注意：优化版PaddleOCR引擎已自动应用以下最优参数
@@ -195,29 +200,114 @@ class Config:
     
     @classmethod
     def load_user_config(cls):
-        """加载用户配置"""
-        config_file = cls._get_config_file()
-        if os.path.exists(config_file):
+        """
+        加载用户配置（使用轻量级配置管理器）
+        
+        保持向后兼容：
+        1. 优先尝试加载新的INI格式配置
+        2. 如果存在旧的JSON格式配置，自动迁移
+        """
+        # 尝试加载INI格式配置
+        ini_config = LightweightConfig.load()
+        
+        # 检查是否存在旧的JSON格式配置
+        old_json_file = cls._get_config_file()
+        if os.path.exists(old_json_file):
             try:
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                # 延迟导入json模块（仅在需要迁移时）
+                import json
+                with open(old_json_file, 'r', encoding='utf-8') as f:
+                    json_config = json.load(f)
+                
+                # 合并配置（JSON配置优先）
+                merged_config = ini_config.copy()
+                for key, value in json_config.items():
+                    merged_config[key] = str(value)
+                
+                # 保存为INI格式
+                LightweightConfig.save(merged_config)
+                
+                # 备份并删除旧的JSON文件
+                backup_file = old_json_file + '.backup'
+                try:
+                    os.rename(old_json_file, backup_file)
+                    print(f"已将旧配置文件迁移到: {backup_file}")
+                except Exception as e:
+                    print(f"备份旧配置文件失败: {e}")
+                
+                return merged_config
+            
             except Exception as e:
-                print(f"加载配置文件失败: {e}")
-        return {}
+                print(f"迁移旧配置文件失败: {e}")
+        
+        return ini_config
     
     @classmethod
     def save_user_config(cls, config_dict):
-        """保存用户配置"""
-        try:
-            config_dir = cls._get_config_dir()
-            os.makedirs(config_dir, exist_ok=True)
-            config_file = cls._get_config_file()
-            with open(config_file, 'w', encoding='utf-8') as f:
-                json.dump(config_dict, f, ensure_ascii=False, indent=2)
-            return True
-        except Exception as e:
-            print(f"保存配置文件失败: {e}")
-            return False
+        """
+        保存用户配置（使用轻量级配置管理器）
+        
+        :param config_dict: 配置字典
+        :return: 是否保存成功
+        """
+        # 转换所有值为字符串
+        str_config = {k: str(v) for k, v in config_dict.items()}
+        return LightweightConfig.save(str_config)
+    
+    @classmethod
+    def get_config_value(cls, key: str, default=None):
+        """
+        获取配置值（从轻量级配置管理器）
+        
+        :param key: 配置键
+        :param default: 默认值
+        :return: 配置值
+        """
+        return LightweightConfig.get(key, default)
+    
+    @classmethod
+    def get_config_bool(cls, key: str, default: bool = False) -> bool:
+        """
+        获取布尔类型配置值
+        
+        :param key: 配置键
+        :param default: 默认值
+        :return: 布尔值
+        """
+        return LightweightConfig.get_bool(key, default)
+    
+    @classmethod
+    def get_config_int(cls, key: str, default: int = 0) -> int:
+        """
+        获取整数类型配置值
+        
+        :param key: 配置键
+        :param default: 默认值
+        :return: 整数值
+        """
+        return LightweightConfig.get_int(key, default)
+    
+    @classmethod
+    def get_config_float(cls, key: str, default: float = 0.0) -> float:
+        """
+        获取浮点数类型配置值
+        
+        :param key: 配置键
+        :param default: 默认值
+        :return: 浮点数值
+        """
+        return LightweightConfig.get_float(key, default)
+    
+    @classmethod
+    def set_config_value(cls, key: str, value) -> bool:
+        """
+        设置配置值
+        
+        :param key: 配置键
+        :param value: 配置值
+        :return: 是否设置成功
+        """
+        return LightweightConfig.set(key, value)
 
 
 class OCRRect:

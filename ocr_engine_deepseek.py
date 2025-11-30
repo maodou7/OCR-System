@@ -51,7 +51,14 @@ class DeepSeekOCREngine:
         # 检查API Key
         if not self.api_key:
             print("⚠️ DeepSeek API Key未配置")
-            print("提示: 请在config.py中设置DEEPSEEK_API_KEY或使用环境变量DEEPSEEK_API_KEY")
+            print("\nDeepSeek OCR是可选插件，需要配置API密钥才能使用。")
+            print("\n配置步骤:")
+            print("  1. 在 config.py 中设置:")
+            print("     DEEPSEEK_ENABLED = True")
+            print("     DEEPSEEK_API_KEY = 'your_api_key'")
+            print("\n  2. 或设置环境变量:")
+            print("     export DEEPSEEK_API_KEY='your_api_key'")
+            print("\n提示: 如不需要在线OCR，可使用本地引擎（PaddleOCR或RapidOCR）")
             return
         
         # 创建OpenAI客户端

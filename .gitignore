@@ -1,9 +1,14 @@
+# ============================================
+# OCR System - Git Ignore Configuration
+# ============================================
+
+# ============================================
 # Python
+# ============================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-!models
 .Python
 *.egg
 *.egg-info/
@@ -18,8 +23,12 @@ sdist/
 var/
 wheels/
 *.whl
+pip-log.txt
+pip-delete-this-directory.txt
 
+# ============================================
 # 虚拟环境
+# ============================================
 .venv/
 venv/
 ENV/
@@ -27,132 +36,117 @@ env/
 .virtualenv/
 portable_python/
 
+# ============================================
 # IDE 和编辑器
+# ============================================
+# VSCode
 .vscode/
+*.code-workspace
+
+# PyCharm
 .idea/
-.kiro
-.ocr_cache
+
+# Kiro
+.kiro/
+!.kiro/specs/
+
+# Windsurf
 .windsurf/
+
+# Agent
 .agent/
-tmp/
+
+# Vim
 *.swp
 *.swo
 *~
-.DS_Store
-Thumbs.db
 
-# OCR 相关
-# 测试图片（如果不想提交测试图片）
-test_*.png
-test_*.jpg
-test_*.jpeg
-quick_test.png
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
 
-# 临时文件
-*.log
-*.tmp
-*.temp
-*.bak
-*.cache
-
-# Excel 导出结果（可选，看是否需要提交结果文件）
-*结果*.xlsx
-ocr_results*.xlsx
-output/*.xlsx
-
-# PDF 临时文件
-*.pdf_cache
-
-# 配置文件（如果包含敏感信息）
-# config.py 现在安全（密钥从环境变量读取），可以提交到Git
-# 只忽略包含真实密钥的本地配置副本
-config_local.py
-*_secret.py
-.env
-.env.local
-.env.*
-!.env.example
-
-# 用户数据目录
-.ocr_system/
-user_data/
-
+# ============================================
+# 操作系统
+# ============================================
 # Windows
 desktop.ini
 *.lnk
+Thumbs.db
 
 # macOS
 .DS_Store
 .AppleDouble
 .LSOverride
+._*
 
-# 打包文件
-*.spec
-!Pack/Pyinstaller/ocr_system.spec
-*.manifest
+# Linux
+*~
 
-# 批处理和脚本（临时）
-一键*.bat
-删除*.bat
-删除*.py
-清理*.bat
-需要删除*.txt
+# ============================================
+# 临时文件
+# ============================================
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.cache
+*.log
 
-# 文档（临时生成的）
-ALIYUN_*.md
-*_SUMMARY.md
-*集成完成*.md
-*修复*.md
-*优化*.md
-BUG_*.md
-UI_*.md
-QUICK_START.md
-!Pack/7z-Self-Extracting/QUICK_START.md
-IMPLEMENTATION_*.md
-ENGINE_*.md
-INTEGRATION_*.md
+# ============================================
+# 配置文件（敏感信息）
+# ============================================
+# 本地配置文件不提交，使用 .example 作为模板
+config.py
+config_local.py
+*_secret.py
+.env
+.env.local
+.env.*.local
+!.env.example
 
-# 旧版和示例文件
-example_*.py
-test_*.py
-*示例*.py
-*测试*.py
-ocr_engine.py
-ocr_engine_new.py
-ocr_engine_aliyun.py
-ocr_engine_easyocr.py
-# ocr_engine_rapid.py  # 已恢复使用
-ocr_system.py
-main.py
-screenshot_tool.py
-
-# 参考项目
-Umi-OCR-main/
-
-# Jupyter Notebook
-.ipynb_checkpoints/
-*.ipynb
-
-# PyInstaller
-# *.spec (已在上面配置)
-
-# 数据库
+# ============================================
+# OCR 相关
+# ============================================
+# OCR缓存数据库
+.ocr_cache/
 *.db
 !sqlite3.c
 !sqlite3.h
 !ext.h
 *.sqlite
 
-# C++编译输出（macOS和Windows用户需要）
-models/libocr_cache.dylib
-models/cpp_engine/build/py.backup
+# 用户数据目录
+.ocr_system/
+user_data/
 
-# 压缩文件
-*.zip
-*.rar
-*.tar.gz
-*.7z
-!models/*.7z
+# 测试图片
+test_*.png
+test_*.jpg
+test_*.jpeg
+quick_test.png
+测试图/
+test_images/
+
+# ============================================
+# 输出文件
+# ============================================
+# Excel 导出结果
+*结果*.xlsx
+ocr_results*.xlsx
+output/*.xlsx
+*.~lock.*
+
+# PDF 临时文件
+*.pdf_cache
+
+# ============================================
+# 打包相关
+# ============================================
+# PyInstaller
+*.spec
+!Pack/Pyinstaller/ocr_system.spec
+*.manifest
 
 # 7z-Self-Extracting 生成的文件
 Pack/7z-Self-Extracting/*.exe
@@ -162,18 +156,93 @@ Pack/7z-Self-Extracting/temp_sfx_fast/
 Pack/7z-Self-Extracting/config.txt
 Pack/7z-Self-Extracting/config_fast.txt
 
+# 压缩文件
+*.zip
+*.rar
+*.tar.gz
+*.7z
+!models/*.7z
+
+# ============================================
+# C++ 编译输出
+# ============================================
+models/libocr_cache.dylib
+models/cpp_engine/build/py.backup
 *.exe.sh
-ocr_engine_paddle.py.backup
-ocr_engine_rapid.py.backup
 
-# 缓存目录
+# ============================================
+# 测试相关
+# ============================================
+# Pytest
+.pytest_cache/
 .test_cache/
-.ocr_cache/          # OCR缓存数据库目录
-*.db                 # SQLite数据库文件
 
-# 测试图片
-测试图/
+# Hypothesis
+.hypothesis/
 
-# Excel结果文件
-*结果*.xlsx
-*.~lock.*
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+*.cover
+
+# ============================================
+# 开发工具生成的文件
+# ============================================
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# ============================================
+# 临时脚本和文档（不提交）
+# ============================================
+# 临时批处理和脚本
+一键*.bat
+删除*.bat
+删除*.py
+清理*.bat
+需要删除*.txt
+
+# 临时文档
+ALIYUN_*.md
+BUG_*.md
+UI_*.md
+
+# 旧版和示例文件
+example_*.py
+*示例*.py
+*测试*.py
+ocr_engine.py
+ocr_engine_new.py
+ocr_engine_aliyun.py
+ocr_engine_easyocr.py
+ocr_system.py
+main.py
+screenshot_tool.py
+*.backup
+
+# 参考项目
+Umi-OCR-main/
+
+# ============================================
+# 整理脚本（开发完成后可删除）
+# ============================================
+organize_docs.py
+organize_scripts.py
+cleanup_redundant_files.py
+deep_cleanup.py
+auto_cleanup_redundant_files.py
+
+# ============================================
+# 特殊规则
+# ============================================
+# 保留 models 目录本身
+!models/
+!models/.gitkeep
+
+# 保留重要的快速入门文档
+!Pack/7z-Self-Extracting/QUICK_START.md
+
+# 保留 docs 目录结构
+!docs/
+!docs/**/.gitkeep

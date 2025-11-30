@@ -107,25 +107,33 @@ function show_menu() {
     echo -e "${BLUE}   请选择打包模式:${RESET}"
     echo -e "${BLUE}========================================${RESET}"
     echo ""
-    echo "  1. 单文件模式 (生成单个可执行文件)"
-    echo "  2. 文件夹模式 (生成包含依赖的文件夹)"
-    echo "  3. 清理构建文件"
-    echo "  4. 退出"
+    echo "  1. 完整版 - 文件夹模式 (包含所有OCR引擎)"
+    echo "  2. 核心版 - 文件夹模式 (仅RapidOCR，不含在线OCR)"
+    echo "  3. 单文件模式 (生成单个可执行文件)"
+    echo "  4. 清理构建文件"
+    echo "  5. 清理缓存和临时文件 (推荐打包前执行)"
+    echo "  6. 退出"
     echo ""
     
-    read -p "请输入选项 (1-4): " choice
+    read -p "请输入选项 (1-6): " choice
     
     case $choice in
         1)
-            build_onefile
+            build_full_version
             ;;
         2)
-            build_onefolder
+            build_core_version
             ;;
         3)
-            clean_build
+            build_onefile
             ;;
         4)
+            clean_build
+            ;;
+        5)
+            clean_cache
+            ;;
+        6)
             exit_script
             ;;
         *)
@@ -190,6 +198,58 @@ function clean_build() {
     echo ""
     echo -e "${GREEN}清理完成!${RESET}"
     echo ""
+    read -p "按 Enter 键继续..."
+    show_menu
+}
+
+# ============================================================================
+# 清理缓存和临时文件函数
+# ============================================================================
+
+function clean_cache() {
+    echo ""
+    echo -e "${YELLOW}[清理] 准备清理缓存和临时文件...${RESET}"
+    echo ""
+    echo "此操作将清理:"
+    echo "  - __pycache__ 目录"
+    echo "  - .pyc 文件"
+    echo "  - 缓存数据库 (.db 文件)"
+    echo "  - 临时文件 (*.tmp, *.log, *.bak)"
+    echo ""
+    
+    read -p "确认清理? (y/N): " confirm
+    
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}已取消清理${RESET}"
+        echo ""
+        read -p "按 Enter 键继续..."
+        show_menu
+        return
+    fi
+    
+    echo ""
+    echo -e "${YELLOW}正在执行清理脚本...${RESET}"
+    echo ""
+    
+    # 切换到项目根目录
+    cd "$PROJECT_ROOT"
+    
+    # 执行清理脚本
+    $PYTHON_CMD cleanup_before_packaging.py --auto
+    
+    if [ $? -ne 0 ]; then
+        echo ""
+        echo -e "${RED}清理脚本执行失败${RESET}"
+        echo ""
+    else
+        echo ""
+        echo -e "${GREEN}清理完成!${RESET}"
+        echo ""
+        echo "详细报告请查看: CLEANUP_REPORT.md"
+        echo ""
+    fi
+    
+    cd "$SCRIPT_DIR"
     read -p "按 Enter 键继续..."
     show_menu
 }
@@ -275,7 +335,130 @@ function build_onefile() {
 }
 
 # ============================================================================
-# 文件夹模式构建函数
+# 完整版构建函数
+# ============================================================================
+
+function build_full_version() {
+    echo ""
+    echo -e "${BLUE}========================================${RESET}"
+    echo -e "${BLUE}   开始完整版构建${RESET}"
+    echo -e "${BLUE}========================================${RESET}"
+    echo ""
+    
+    echo -e "${YELLOW}[2/3] 准备构建...${RESET}"
+    echo "  版本: 完整版 (包含所有OCR引擎和在线OCR支持)"
+    echo "  输出: dist/OCR-System/"
+    echo ""
+    
+    # 切换到项目根目录执行构建
+    cd "$PROJECT_ROOT"
+    
+    echo -e "${YELLOW}[3/3] 执行 PyInstaller...${RESET}"
+    echo ""
+    
+    # 使用完整版 spec 文件构建
+    if [ -f "$SCRIPT_DIR/ocr_system.spec" ]; then
+        echo "使用完整版 spec 文件..."
+        if $PYINSTALLER_CMD --clean "$SCRIPT_DIR/ocr_system.spec"; then
+            BUILD_SUCCESS=1
+        else
+            BUILD_SUCCESS=0
+        fi
+    else
+        echo -e "${RED}错误: 找不到 ocr_system.spec 文件${RESET}"
+        BUILD_SUCCESS=0
+    fi
+    
+    if [ $BUILD_SUCCESS -eq 0 ]; then
+        echo ""
+        echo -e "${RED}========================================${RESET}"
+        echo -e "${RED}   构建失败!${RESET}"
+        echo -e "${RED}========================================${RESET}"
+        echo ""
+        echo "请检查上面的错误信息"
+        echo ""
+        cd "$SCRIPT_DIR"
+        read -p "按 Enter 键继续..."
+        show_menu
+        return
+    fi
+    
+    echo ""
+    echo -e "${GREEN}========================================${RESET}"
+    echo -e "${GREEN}   构建成功!${RESET}"
+    echo -e "${GREEN}========================================${RESET}"
+    echo ""
+    
+    display_results
+}
+
+# ============================================================================
+# 核心版构建函数
+# ============================================================================
+
+function build_core_version() {
+    echo ""
+    echo -e "${BLUE}========================================${RESET}"
+    echo -e "${BLUE}   开始核心版构建${RESET}"
+    echo -e "${BLUE}========================================${RESET}"
+    echo ""
+    
+    echo -e "${YELLOW}[2/3] 准备构建...${RESET}"
+    echo "  版本: 核心版 (仅RapidOCR，不含在线OCR依赖)"
+    echo "  输出: dist/OCR-System-Core/"
+    echo "  体积: 约250MB (相比完整版减少60%)"
+    echo ""
+    
+    # 切换到项目根目录执行构建
+    cd "$PROJECT_ROOT"
+    
+    echo -e "${YELLOW}[3/3] 执行 PyInstaller...${RESET}"
+    echo ""
+    
+    # 使用核心版 spec 文件构建
+    if [ -f "$SCRIPT_DIR/ocr_system_core.spec" ]; then
+        echo "使用核心版 spec 文件..."
+        if $PYINSTALLER_CMD --clean "$SCRIPT_DIR/ocr_system_core.spec"; then
+            BUILD_SUCCESS=1
+        else
+            BUILD_SUCCESS=0
+        fi
+    else
+        echo -e "${RED}错误: 找不到 ocr_system_core.spec 文件${RESET}"
+        BUILD_SUCCESS=0
+    fi
+    
+    if [ $BUILD_SUCCESS -eq 0 ]; then
+        echo ""
+        echo -e "${RED}========================================${RESET}"
+        echo -e "${RED}   构建失败!${RESET}"
+        echo -e "${RED}========================================${RESET}"
+        echo ""
+        echo "请检查上面的错误信息"
+        echo ""
+        cd "$SCRIPT_DIR"
+        read -p "按 Enter 键继续..."
+        show_menu
+        return
+    fi
+    
+    echo ""
+    echo -e "${GREEN}========================================${RESET}"
+    echo -e "${GREEN}   构建成功!${RESET}"
+    echo -e "${GREEN}========================================${RESET}"
+    echo ""
+    echo -e "${BLUE}核心版说明:${RESET}"
+    echo "  - 仅包含RapidOCR本地引擎"
+    echo "  - 不包含在线OCR依赖（阿里云、DeepSeek）"
+    echo "  - 用户可通过pip单独安装在线OCR插件"
+    echo "  - PaddleOCR引擎可通过程序内下载"
+    echo ""
+    
+    display_results
+}
+
+# ============================================================================
+# 文件夹模式构建函数（保留用于向后兼容）
 # ============================================================================
 
 function build_onefolder() {

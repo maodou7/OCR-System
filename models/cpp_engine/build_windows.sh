@@ -40,9 +40,10 @@ echo ""
 echo "编译配置:"
 echo "  - 输出: ../ocr_cache.dll"
 echo "  - C++标准: C++17"
-echo "  - 优化级别: O2 (高性能)"
+echo "  - 优化级别: O3 (最高优化)"
+echo "  - 体积优化: 启用strip和section gc"
 echo "  - 线程支持: pthread"
-echo "  - SQLite: 嵌入式编译"
+echo "  - SQLite: 嵌入式编译（精简版）"
 echo ""
 
 # 开始编译
@@ -57,9 +58,20 @@ echo ""
 echo "步骤 1/3: 编译 SQLite (C 代码)..."
 gcc -c sqlite3.c \
     -o sqlite3.o \
-    -O2 \
+    -O3 \
+    -ffunction-sections \
+    -fdata-sections \
     -DSQLITE_THREADSAFE=1 \
-    -DSQLITE_ENABLE_JSON1
+    -DSQLITE_OMIT_DEPRECATED \
+    -DSQLITE_OMIT_LOAD_EXTENSION \
+    -DSQLITE_OMIT_PROGRESS_CALLBACK \
+    -DSQLITE_OMIT_SHARED_CACHE \
+    -DSQLITE_DEFAULT_MEMSTATUS=0 \
+    -DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1 \
+    -DSQLITE_LIKE_DOESNT_MATCH_BLOBS \
+    -DSQLITE_MAX_EXPR_DEPTH=0 \
+    -DSQLITE_OMIT_DECLTYPE \
+    -DSQLITE_OMIT_AUTOINIT
 
 if [ $? -ne 0 ]; then
     echo "❌ SQLite 编译失败"
@@ -73,7 +85,12 @@ g++ -c ocr_cache_engine.cpp \
     -o ocr_cache_engine.o \
     -I. \
     -std=c++17 \
-    -O2
+    -O3 \
+    -ffunction-sections \
+    -fdata-sections \
+    -fno-exceptions \
+    -fno-rtti \
+    -fvisibility=hidden
 
 if [ $? -ne 0 ]; then
     echo "❌ OCR Cache Engine 编译失败"
@@ -84,6 +101,7 @@ echo "  ✓ OCR Cache Engine 编译完成"
 echo ""
 echo "步骤 3/3: 链接生成 DLL..."
 # 完全静态链接所有依赖，避免运行时依赖问题
+# 使用 -s 移除调试符号，使用 --gc-sections 移除未使用代码
 g++ -shared \
     ocr_cache_engine.o \
     sqlite3.o \
@@ -92,7 +110,10 @@ g++ -shared \
     -static-libstdc++ \
     -static \
     -lpthread \
-    -lwinpthread
+    -lwinpthread \
+    -s \
+    -Wl,--gc-sections \
+    -Wl,--strip-all
 
 if [ $? -ne 0 ]; then
     echo "❌ 链接失败"

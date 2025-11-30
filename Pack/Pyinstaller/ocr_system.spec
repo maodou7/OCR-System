@@ -1,8 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 """
-PyInstaller spec file for OCR System
+PyInstaller spec file for OCR System - Full Version
 This file defines the build configuration for packaging the OCR System application.
+
+PACKAGING OPTIONS:
+1. Full Version (this file): Includes both PaddleOCR and RapidOCR engines (~600MB)
+2. Core Version (ocr_system_core.spec): Only RapidOCR engine (~250MB, recommended)
+
+For minimal size distribution, use ocr_system_core.spec instead.
+Users can download PaddleOCR engine separately if needed.
 """
 
 import os
@@ -79,6 +86,9 @@ datas = [
     
     # Configuration template (NOT config.py - that should be external)
     (os.path.join(project_root, 'config.py.example'), '.'),
+    
+    # Configuration wizard for first-run setup
+    (os.path.join(project_root, 'config_wizard.py'), '.'),
     
     # Environment template
     (os.path.join(project_root, '.env.example'), '.'),
@@ -223,6 +233,41 @@ pyz = PYZ(
     cipher=None,
 )
 
+# UPX exclusions: Files that should not be compressed
+# Some files may not work correctly when compressed with UPX
+upx_exclude_list = [
+    # Qt libraries - compression can cause issues with Qt plugins
+    'Qt6Core.dll',
+    'Qt6Gui.dll',
+    'Qt6Widgets.dll',
+    
+    # Python DLLs - core Python runtime should not be compressed
+    'python3.dll',
+    'python311.dll',
+    'python*.dll',
+    
+    # OCR engine executables - already optimized, compression may cause issues
+    'PaddleOCR-json.exe',
+    'RapidOCR-json.exe',
+    
+    # Large ML/AI libraries - compression provides minimal benefit
+    'mkldnn.dll',
+    'mklml.dll',
+    'onnxruntime.dll',
+    'paddle_inference.dll',
+    'opencv_world*.dll',
+    
+    # System libraries - should not be compressed
+    'vcruntime*.dll',
+    'msvcp*.dll',
+    'concrt*.dll',
+    
+    # SQLite and cache engine
+    'sqlite3.dll',
+    'ocr_cache.dll',
+    'libocr_cache.so',
+]
+
 # EXE: Create the executable
 exe = EXE(
     pyz,
@@ -233,7 +278,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=True,  # Enable UPX compression for size reduction
     console=False,  # Hide console window
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -250,7 +295,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
-    upx_exclude=[],
+    upx=True,  # Enable UPX compression for binaries
+    upx_exclude=upx_exclude_list,  # Exclude problematic files from compression
     name='OCR-System',
 )

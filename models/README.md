@@ -53,10 +53,28 @@ chmod +x build.sh
 
 ## 📥 OCR引擎下载
 
-### PaddleOCR-json (推荐)
+### RapidOCR-json (默认引擎) ⭐
 
-**特点**: 高精度、速度快
-**大小**: 约300MB
+**特点**: 轻量级、启动快、体积小
+**大小**: 约45MB
+**状态**: 核心版已包含，无需下载
+
+**下载地址**（如需手动安装）:
+- [v0.2.0 Windows x64](https://github.com/hiroi-sora/RapidOCR-json/releases/download/v0.2.0/RapidOCR-json_v0.2.0_windows_x64.7z)
+
+**安装步骤**:
+1. 下载7z压缩包
+2. 解压到 `models/RapidOCR-json/` 目录
+3. 确保目录结构为：
+   ```
+   models/RapidOCR-json/RapidOCR-json_v0.2.0/
+   ```
+
+### PaddleOCR-json (可选引擎)
+
+**特点**: 高精度、功能强大
+**大小**: 约350MB
+**状态**: 需要单独下载（适合需要高精度识别的用户）
 
 **下载地址**:
 - [v1.4.1 Windows x64](https://github.com/hiroi-sora/PaddleOCR-json/releases/download/v1.4.1/PaddleOCR-json_v1.4.1_windows_x64.7z)
@@ -69,21 +87,13 @@ chmod +x build.sh
    models/PaddleOCR-json/PaddleOCR-json_v1.4.1/
    ```
 
-### RapidOCR-json (轻量级)
+**何时需要PaddleOCR**:
+- 需要更高的识别精度
+- 处理复杂文档
+- 多语言混合识别
+- 专业OCR应用
 
-**特点**: 轻量级、启动快
-**大小**: 约70MB
-
-**下载地址**:
-- [v0.2.0 Windows x64](https://github.com/hiroi-sora/RapidOCR-json/releases/download/v0.2.0/RapidOCR-json_v0.2.0_windows_x64.7z)
-
-**安装步骤**:
-1. 下载7z压缩包
-2. 解压到 `models/RapidOCR-json/` 目录
-3. 确保目录结构为：
-   ```
-   models/RapidOCR-json/RapidOCR-json_v0.2.0/
-   ```
+**详细说明**: 见项目根目录的 `ENGINE_DOWNLOAD_GUIDE.md`
 
 ## 🐧 Linux用户
 
@@ -98,9 +108,10 @@ sudo apt-get install wine
 
 ## ⚠️ 注意事项
 
-1. **体积大不提交**: OCR引擎文件体积大（300MB+），不包含在Git仓库中
-2. **手动下载**: 每个用户需要自己下载并解压到正确位置
-3. **可选引擎**: 可以只下载一个引擎，程序会自动检测可用的引擎
+1. **默认引擎**: 核心版已包含RapidOCR引擎，可直接使用
+2. **可选下载**: PaddleOCR引擎需要单独下载（如需高精度识别）
+3. **体积考虑**: PaddleOCR体积较大（350MB），根据需求选择是否下载
+4. **自动检测**: 程序会自动检测已安装的引擎
 
 ## 🔍 验证安装
 

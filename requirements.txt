@@ -9,7 +9,7 @@ PySide6>=6.6.0
 
 # 图像处理（核心）
 Pillow>=10.0.0
-pillow-heif>=0.14.0  # HEIF/HEIC 格式支持（可选）
+# pillow-heif>=0.14.0  # HEIF/HEIC 格式支持（未使用，已移除）
 
 # Excel 导出
 openpyxl>=3.1.0
@@ -17,8 +17,8 @@ openpyxl>=3.1.0
 # PDF 处理
 PyMuPDF>=1.23.0
 
-# 基础数值计算（Pillow 依赖）
-numpy>=1.24.0,<2.0.0
+# 基础数值计算（可选，仅在线OCR引擎处理numpy数组时需要）
+# numpy>=1.24.0,<2.0.0  # 已移除：系统不直接使用numpy，仅在线OCR引擎支持numpy数组输入
 
 # 阿里云 OCR（新版 SDK）
 alibabacloud-ocr-api20210707>=3.1.2

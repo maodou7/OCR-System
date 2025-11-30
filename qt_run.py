@@ -29,22 +29,61 @@ def ensure_config_file():
         exe_dir = os.path.dirname(os.path.abspath(sys.executable))
         # config.py.example在打包的资源中
         config_example_path = os.path.join(sys._MEIPASS, 'config.py.example')
+        # config_wizard.py也在打包的资源中
+        wizard_path = os.path.join(sys._MEIPASS, 'config_wizard.py')
     else:
         # 开发环境
         exe_dir = os.path.dirname(os.path.abspath(__file__))
         config_example_path = os.path.join(exe_dir, 'config.py.example')
+        wizard_path = os.path.join(exe_dir, 'config_wizard.py')
     
     # config.py应该在可执行文件目录（外部，用户可修改）
     config_path = os.path.join(exe_dir, 'config.py')
     
+    # 检查是否首次运行
+    is_first_run = not os.path.exists(config_path)
+    
     # 如果config.py不存在，从config.py.example复制
-    if not os.path.exists(config_path):
+    if is_first_run:
         if os.path.exists(config_example_path):
             try:
                 shutil.copy2(config_example_path, config_path)
                 print(f"首次运行：已从 config.py.example 创建 config.py")
                 print(f"配置文件位置: {config_path}")
                 print()
+                
+                # 运行配置向导（如果存在）
+                if os.path.exists(wizard_path):
+                    try:
+                        # 复制向导到外部目录以便用户可以再次运行
+                        external_wizard = os.path.join(exe_dir, 'config_wizard.py')
+                        if not os.path.exists(external_wizard):
+                            shutil.copy2(wizard_path, external_wizard)
+                        
+                        print("=" * 60)
+                        print("首次运行配置向导")
+                        print("=" * 60)
+                        print()
+                        
+                        # 导入并运行向导
+                        import importlib.util
+                        spec = importlib.util.spec_from_file_location("config_wizard", wizard_path)
+                        wizard_module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(wizard_module)
+                        
+                        # 运行向导
+                        wizard_module.run_wizard()
+                        
+                        print()
+                        print("按回车键继续启动程序...")
+                        input()
+                        print()
+                        
+                    except Exception as e:
+                        print(f"配置向导运行失败: {e}")
+                        print("将使用默认配置继续启动")
+                        print()
+                
             except Exception as e:
                 print(f"警告：无法创建config.py文件: {e}")
                 print(f"将使用默认配置")

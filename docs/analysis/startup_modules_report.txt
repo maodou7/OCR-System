@@ -1,0 +1,274 @@
+============================================================
+启动时模块检查报告
+============================================================
+
+启动前已加载模块数: 38
+导入后新增模块数: 180
+创建后新增模块数: 1
+总模块数: 219
+
+============================================================
+不应在启动时加载的模块
+============================================================
+
+✓ 未发现不应在启动时加载的模块
+
+============================================================
+关键模块加载状态
+============================================================
+
+✓ PySide6                        必需（GUI框架）
+✓ PIL                            必需（图像处理）
+✓ config                         必需（配置管理）
+✓ utils                          必需（工具函数）
+✓ ocr_cache_manager              必需（缓存管理）
+✓ dependency_manager             必需（依赖管理）
+✓ optimized_image_loader         必需（图像加载）
+✓ ocr_engine_downloader          必需（引擎下载）
+✗ ocr_engine_manager             延迟加载（OCR引擎管理）
+✗ ocr_engine_paddle              延迟加载（PaddleOCR引擎）
+✗ ocr_engine_rapid               延迟加载（RapidOCR引擎）
+✗ ocr_engine_aliyun_new          延迟加载（阿里云OCR）
+✗ ocr_engine_deepseek            延迟加载（DeepSeek OCR）
+
+============================================================
+模块类型统计
+============================================================
+
+总模块数: 219
+  标准库: 83 (37.9%)
+  第三方库: 3 (1.4%)
+  本地模块: 11 (5.0%)
+
+============================================================
+第三方模块列表
+============================================================
+
+1. PIL
+2. PySide6
+3. _distutils_hack
+4. shiboken6
+
+============================================================
+所有加载的模块
+============================================================
+
+1. PIL
+2. PIL.ExifTags
+3. PIL.Image
+4. PIL.ImageMode
+5. PIL.TiffTags
+6. PIL._binary
+7. PIL._deprecate
+8. PIL._imaging
+9. PIL._util
+10. PIL._version
+11. PySide6
+12. PySide6.QtCore
+13. PySide6.QtGui
+14. PySide6.QtWidgets
+15. PySide6.support
+16. PySide6.support.deprecated
+17. PySide6.support.feature
+18. PySide6.support.signature
+19. PySide6.support.signature.errorhandler
+20. PySide6.support.signature.importhandler
+21. PySide6.support.signature.layout
+22. PySide6.support.signature.lib
+23. PySide6.support.signature.lib.enum_sig
+24. PySide6.support.signature.lib.pyi_generator
+25. PySide6.support.signature.lib.tool
+26. PySide6.support.signature.mapping
+27. PySide6.support.signature.parser
+28. __feature__
+29. __future__
+30. __main__
+31. _abc
+32. _ast
+33. _bisect
+34. _blake2
+35. _bz2
+36. _codecs
+37. _codecs_cn
+38. _collections
+39. _collections_abc
+40. _compression
+41. _ctypes
+42. _datetime
+43. _distutils_hack
+44. _frozen_importlib
+45. _frozen_importlib_external
+46. _functools
+47. _hashlib
+48. _imp
+49. _io
+50. _json
+51. _locale
+52. _lzma
+53. _multibytecodec
+54. _opcode
+55. _operator
+56. _random
+57. _sha512
+58. _signal
+59. _sitebuiltins
+60. _socket
+61. _sre
+62. _ssl
+63. _stat
+64. _string
+65. _struct
+66. _thread
+67. _typing
+68. _warnings
+69. _weakref
+70. _weakrefset
+71. _winapi
+72. abc
+73. argparse
+74. ast
+75. atexit
+76. base64
+77. binascii
+78. bisect
+79. builtins
+80. bz2
+81. calendar
+82. codecs
+83. collections
+84. collections.abc
+85. config
+86. contextlib
+87. copyreg
+88. ctypes
+89. ctypes._endian
+90. datetime
+91. dependency_manager
+92. dis
+93. email
+94. email._encoded_words
+95. email._parseaddr
+96. email._policybase
+97. email.base64mime
+98. email.charset
+99. email.encoders
+100. email.errors
+101. email.feedparser
+102. email.header
+103. email.iterators
+104. email.message
+105. email.parser
+106. email.quoprimime
+107. email.utils
+108. encodings
+109. encodings.aliases
+110. encodings.cp437
+111. encodings.gbk
+112. encodings.utf_8
+113. enum
+114. errno
+115. fnmatch
+116. functools
+117. gc
+118. genericpath
+119. gettext
+120. hashlib
+121. http
+122. http.client
+123. importlib
+124. importlib._abc
+125. importlib._bootstrap
+126. importlib._bootstrap_external
+127. importlib.machinery
+128. importlib.util
+129. inspect
+130. io
+131. ipaddress
+132. itertools
+133. json
+134. json.decoder
+135. json.encoder
+136. json.scanner
+137. keyword
+138. lightweight_config
+139. linecache
+140. locale
+141. logging
+142. lzma
+143. marshal
+144. math
+145. msvcrt
+146. nt
+147. ntpath
+148. nturl2path
+149. ocr_cache_manager
+150. ocr_engine_download_dialog
+151. ocr_engine_downloader
+152. opcode
+153. operator
+154. optimized_image_loader
+155. os
+156. os.path
+157. pathlib
+158. platform
+159. posixpath
+160. qt_main
+161. quopri
+162. random
+163. re
+164. re._casefix
+165. re._compiler
+166. re._constants
+167. re._parser
+168. reprlib
+169. select
+170. selectors
+171. shiboken6
+172. shiboken6.Shiboken
+173. shibokensupport
+174. shibokensupport.feature
+175. shibokensupport.signature
+176. shibokensupport.signature.errorhandler
+177. shibokensupport.signature.importhandler
+178. shibokensupport.signature.layout
+179. shibokensupport.signature.lib
+180. shibokensupport.signature.lib.enum_sig
+181. shibokensupport.signature.lib.pyi_generator
+182. shibokensupport.signature.lib.tool
+183. shibokensupport.signature.loader
+184. shibokensupport.signature.mapping
+185. shibokensupport.signature.parser
+186. shutil
+187. signal
+188. signature_bootstrap
+189. site
+190. socket
+191. ssl
+192. stat
+193. string
+194. struct
+195. subprocess
+196. sys
+197. tempfile
+198. textwrap
+199. threading
+200. time
+201. token
+202. tokenize
+203. traceback
+204. types
+205. typing
+206. typing.io
+207. typing.re
+208. urllib
+209. urllib.error
+210. urllib.parse
+211. urllib.request
+212. urllib.response
+213. utils
+214. warnings
+215. weakref
+216. winreg
+217. zipfile
+218. zipimport
+219. zlib

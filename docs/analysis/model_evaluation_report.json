@@ -1,0 +1,93 @@
+{
+  "timestamp": "2025-11-28 22:15:00",
+  "current_models": {
+    "detection": {
+      "name": "ch_PP-OCRv3_det_infer",
+      "type": "server",
+      "size_mb": 3.64
+    },
+    "recognition_ch": {
+      "name": "ch_PP-OCRv3_rec_infer",
+      "type": "server",
+      "size_mb": 11.35
+    },
+    "recognition_en": {
+      "name": "en_PP-OCRv3_rec_infer",
+      "type": "server",
+      "size_mb": 9.5
+    },
+    "classification": {
+      "name": "ch_ppocr_mobile_v2.0_cls_infer",
+      "type": "mobile",
+      "size_mb": 1.38
+    }
+  },
+  "server_model_results": {
+    "results": [
+      {
+        "name": "simple_chinese",
+        "expected": "你好世界",
+        "recognized": "你好世界",
+        "accuracy": 100.0,
+        "match": true
+      },
+      {
+        "name": "simple_english",
+        "expected": "Hello World",
+        "recognized": "Hello World",
+        "accuracy": 100.0,
+        "match": true
+      },
+      {
+        "name": "mixed_text",
+        "expected": "OCR识别测试Test123",
+        "recognized": "OCR识别测试Test123",
+        "accuracy": 100.0,
+        "match": true
+      },
+      {
+        "name": "numbers",
+        "expected": "1234567890",
+        "recognized": "1234567890",
+        "accuracy": 100.0,
+        "match": true
+      },
+      {
+        "name": "long_chinese",
+        "expected": "这是一段较长的中文文本用于测试OCR识别准确率",
+        "recognized": "这是一段较长的中文文本用于测试OCR识",
+        "accuracy": 82.6086956521739,
+        "match": false
+      },
+      {
+        "name": "long_english",
+        "expected": "This is a longer English text for testing OCR accuracy",
+        "recognized": "This is a longer English text for testing",
+        "accuracy": 75.55555555555556,
+        "match": false
+      },
+      {
+        "name": "punctuation",
+        "expected": "你好这是测试",
+        "recognized": "你好这是测试",
+        "accuracy": 100.0,
+        "match": true
+      },
+      {
+        "name": "special_chars",
+        "expected": "价格99元",
+        "recognized": "价格99元",
+        "accuracy": 100.0,
+        "match": true
+      }
+    ],
+    "overall_accuracy": 87.17948717948718,
+    "total_chars": 117,
+    "correct_chars": 102
+  },
+  "comparison": {
+    "current_total_size_mb": 25.87,
+    "server_accuracy": 87.17948717948718,
+    "recommendation": "当前Server模型准确率较低 (<90%)。\n建议: 保持使用Server模型，或检查测试数据和配置。"
+  }
+}

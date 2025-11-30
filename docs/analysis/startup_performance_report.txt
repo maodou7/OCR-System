@@ -1,0 +1,55 @@
+============================================================
+启动性能分析报告
+============================================================
+
+总启动时间: 1.168秒
+
+各阶段耗时:
+  1. 导入模块:     0.402秒 (34.4%)
+  2. 创建应用:     0.035秒 (3.0%)
+  3. 创建窗口:     0.053秒 (4.6%)
+  4. 显示窗口:     0.659秒 (56.4%)
+  5. 事件处理:     0.017秒 (1.4%)
+
+============================================================
+详细性能报告
+============================================================
+
+         356024 function calls (346370 primitive calls) in 1.132 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1246 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.652    0.652    0.658    0.658 {method 'show' of 'PySide6.QtWidgets.QWidget' objects}
+    123/2    0.001    0.000    0.409    0.205 <frozen importlib._bootstrap>:1165(_find_and_load)
+    123/2    0.001    0.000    0.409    0.205 <frozen importlib._bootstrap>:1120(_find_and_load_unlocked)
+    121/2    0.001    0.000    0.408    0.204 <frozen importlib._bootstrap>:666(_load_unlocked)
+     80/2    0.000    0.000    0.407    0.204 <frozen importlib._bootstrap_external>:934(exec_module)
+    252/4    0.000    0.000    0.406    0.102 <frozen importlib._bootstrap>:233(_call_with_frames_removed)
+     94/2    0.001    0.000    0.406    0.203 {built-in method builtins.exec}
+        1    0.007    0.007    0.401    0.401 C:\Users\A1555\Desktop\OCR项目\OCR-System-1\qt_main.py:1(<module>)
+     22/7    0.000    0.000    0.199    0.028 {built-in method builtins.__import__}
+       12    0.000    0.000    0.169    0.014 <frozen importlib._bootstrap_external>:1239(exec_module)
+       12    0.008    0.001    0.169    0.014 {built-in method _imp.exec_dynamic}
+        1    0.000    0.000    0.164    0.164 C:\Users\A1555\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\PySide6\__init__.py:1(<module>)
+        1    0.000    0.000    0.164    0.164 C:\Users\A1555\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\PySide6\__init__.py:41(_setupQtDirectories)
+        1    0.000    0.000    0.162    0.162 C:\Users\A1555\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\shiboken6\__init__.py:1(<module>)
+    41/19    0.000    0.000    0.156    0.008 <frozen importlib._bootstrap>:1207(_handle_fromlist)
+        1    0.000    0.000    0.129    0.129 signature_bootstrap.py:40(bootstrap)
+     13/3    0.000    0.000    0.126    0.042 signature_bootstrap.py:190(exec_module)
+        1    0.000    0.000    0.124    0.124 shibokensupport/signature/loader.py:1(<module>)
+      283    0.001    0.000    0.105    0.000 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\enum.py:688(__call__)
+      178    0.004    0.000    0.105    0.001 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\enum.py:841(_create_)
+       52    0.001    0.000    0.097    0.002 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\re\__init__.py:272(_compile)
+       48    0.000    0.000    0.097    0.002 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\re\__init__.py:225(compile)
+       48    0.000    0.000    0.096    0.002 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\re\_compiler.py:740(compile)
+  360/358    0.007    0.000    0.077    0.000 {built-in method builtins.__build_class__}
+      209    0.007    0.000    0.074    0.000 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\enum.py:499(__new__)
+       48    0.000    0.000    0.069    0.001 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\re\_parser.py:979(parse)
+   339/48    0.003    0.000    0.069    0.001 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\re\_parser.py:456(_parse_sub)
+   884/58    0.023    0.000    0.068    0.001 C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\re\_parser.py:516(_parse)
+        1    0.000    0.000    0.063    0.063 C:\Users\A1555\Desktop\OCR项目\OCR-System-1\ocr_engine_downloader.py:1(<module>)
+        1    0.000    0.000    0.061    0.061 shibokensupport/signature/lib/pyi_generator.py:1(<module>)
+
+

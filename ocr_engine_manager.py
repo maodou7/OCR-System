@@ -150,6 +150,14 @@ class OCREngineManager:
     @staticmethod
     def _check_engine_availability():
         """检查各引擎的可用性"""
+        # 导入模型解压器
+        try:
+            from model_decompressor import ensure_engine_available, is_engine_extracted
+        except ImportError:
+            # 如果解压器不可用，使用原有逻辑
+            ensure_engine_available = None
+            is_engine_extracted = None
+        
         # 检查阿里云OCR（检查SDK、密钥配置和启用开关）
         try:
             from alibabacloud_ocr_api20210707.client import Client as OcrClient
@@ -175,6 +183,12 @@ class OCREngineManager:
         paddle_exe = get_resource_path(os.path.join("models", "PaddleOCR-json", "PaddleOCR-json_v1.4.1", "PaddleOCR-json.exe"))
         has_exe = os.path.exists(paddle_exe)
         
+        # 如果可执行文件不存在，尝试自动解压
+        if enabled and not has_exe and ensure_engine_available:
+            print(f"[PaddleOCR] 检测到压缩模型，尝试自动解压...")
+            if ensure_engine_available('paddle', progress_callback=lambda m: print(f"  {m}")):
+                has_exe = os.path.exists(paddle_exe)
+        
         print(f"[PaddleOCR] 配置检查: ENABLED={enabled}, 可执行文件存在={has_exe}")
         
         if enabled and has_exe:
@@ -187,6 +201,12 @@ class OCREngineManager:
         enabled = getattr(Config, 'RAPID_ENABLED', True)
         rapid_exe = get_resource_path(os.path.join("models", "RapidOCR-json", "RapidOCR-json_v0.2.0", "RapidOCR-json.exe"))
         has_exe = os.path.exists(rapid_exe)
+        
+        # 如果可执行文件不存在，尝试自动解压
+        if enabled and not has_exe and ensure_engine_available:
+            print(f"[RapidOCR] 检测到压缩模型，尝试自动解压...")
+            if ensure_engine_available('rapid', progress_callback=lambda m: print(f"  {m}")):
+                has_exe = os.path.exists(rapid_exe)
         
         print(f"[RapidOCR] 配置检查: ENABLED={enabled}, 可执行文件存在={has_exe}")
         

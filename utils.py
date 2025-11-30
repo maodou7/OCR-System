@@ -9,6 +9,7 @@ from datetime import datetime
 from PIL import Image
 from config import Config
 from dependency_manager import DependencyManager
+from optimized_image_loader import OptimizedImageLoader
 
 
 class FileUtils:
@@ -105,18 +106,14 @@ class ImageUtils:
     @staticmethod
     def load_image(file_path):
         """
-        加载图片文件
+        加载图片文件（使用优化的加载器）
         :param file_path: 文件路径
         :return: PIL Image对象
+        
+        验证需求: 9.2
         """
-        if FileUtils.is_pdf_file(file_path):
-            return ImageUtils.pdf_to_image(file_path)
-        else:
-            img = Image.open(file_path)
-            # 转换为RGB模式
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-            return img
+        # 使用OptimizedImageLoader加载图像
+        return OptimizedImageLoader.load_for_display(file_path)
     
     @staticmethod
     def pdf_to_image(pdf_path, page_num=0, zoom=None):

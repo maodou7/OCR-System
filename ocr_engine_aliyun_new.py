@@ -87,12 +87,16 @@ class AliyunOCRNewEngine:
         
         if not self.access_key_id or not self.access_key_secret:
             print("❌ 错误: 缺少阿里云凭证")
-            print("\n请在 config.py 中设置:")
-            print("  ALIYUN_ACCESS_KEY_ID = 'your_key_id'")
-            print("  ALIYUN_ACCESS_KEY_SECRET = 'your_key_secret'")
-            print("\n或设置环境变量:")
-            print("  ALIBABA_CLOUD_ACCESS_KEY_ID")
-            print("  ALIBABA_CLOUD_ACCESS_KEY_SECRET")
+            print("\n阿里云OCR是可选插件，需要配置API密钥才能使用。")
+            print("\n配置步骤:")
+            print("  1. 在 config.py 中设置:")
+            print("     ALIYUN_ENABLED = True")
+            print("     ALIYUN_ACCESS_KEY_ID = 'your_key_id'")
+            print("     ALIYUN_ACCESS_KEY_SECRET = 'your_key_secret'")
+            print("\n  2. 或设置环境变量:")
+            print("     export ALIYUN_ACCESS_KEY_ID='your_key_id'")
+            print("     export ALIYUN_ACCESS_KEY_SECRET='your_key_secret'")
+            print("\n提示: 如不需要在线OCR，可使用本地引擎（PaddleOCR或RapidOCR）")
             return
         
         # 初始化客户端

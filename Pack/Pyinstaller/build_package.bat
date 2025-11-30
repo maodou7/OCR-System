@@ -101,16 +101,18 @@ echo.
 echo   1. 单文件模式 (生成单个 .exe 文件)
 echo   2. 文件夹模式 (生成包含依赖的文件夹)
 echo   3. 清理构建文件
-echo   4. 退出
+echo   4. 清理缓存和临时文件 (推荐打包前执行)
+echo   5. 退出
 echo.
 
-choice /C 1234 /N /M "请输入选项 (1-4): "
+choice /C 12345 /N /M "请输入选项 (1-5): "
 set "MENU_CHOICE=%errorlevel%"
 
 if "%MENU_CHOICE%"=="1" goto build_onefile
 if "%MENU_CHOICE%"=="2" goto build_onefolder
 if "%MENU_CHOICE%"=="3" goto clean_build
-if "%MENU_CHOICE%"=="4" goto exit_script
+if "%MENU_CHOICE%"=="4" goto clean_cache
+if "%MENU_CHOICE%"=="5" goto exit_script
 
 REM 如果到达这里，说明出现了意外情况
 goto main_menu
@@ -191,6 +193,55 @@ if exist "%PROJECT_ROOT%\dist" (
 echo.
 echo %GREEN%清理完成!%RESET%
 echo.
+pause
+goto main_menu
+
+REM ============================================================================
+REM 清理缓存和临时文件
+REM ============================================================================
+
+:clean_cache
+echo.
+echo %YELLOW%[清理] 准备清理缓存和临时文件...%RESET%
+echo.
+echo 此操作将清理:
+echo   - __pycache__ 目录
+echo   - .pyc 文件
+echo   - 缓存数据库 (.db 文件)
+echo   - 临时文件 (*.tmp, *.log, *.bak)
+echo.
+
+choice /C YN /M "确认清理? (Y/N): "
+if errorlevel 2 (
+    echo %YELLOW%已取消清理%RESET%
+    echo.
+    pause
+    goto main_menu
+)
+
+echo.
+echo %YELLOW%正在执行清理脚本...%RESET%
+echo.
+
+REM 切换到项目根目录
+cd /d "%PROJECT_ROOT%"
+
+REM 执行清理脚本
+%PYTHON_CMD% cleanup_before_packaging.py --auto
+
+if errorlevel 1 (
+    echo.
+    echo %RED%清理脚本执行失败%RESET%
+    echo.
+) else (
+    echo.
+    echo %GREEN%清理完成!%RESET%
+    echo.
+    echo 详细报告请查看: CLEANUP_REPORT.md
+    echo.
+)
+
+cd /d "%SCRIPT_DIR%"
 pause
 goto main_menu
 
