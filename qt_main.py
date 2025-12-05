@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List
 
 from PySide6.QtCore import Qt, QRect, QPoint, Signal, QObject, QSize, QThread
-from PySide6.QtGui import QAction, QPixmap, QPainter, QPen, QGuiApplication
+from PySide6.QtGui import QAction, QPixmap, QPainter, QPen, QGuiApplication, QCursor
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFileDialog, QVBoxLayout, QHBoxLayout,
     QLabel, QSplitter, QTableWidget, QTableWidgetItem, QToolBar, QPushButton,
@@ -70,7 +70,7 @@ class OCRInitWorker(QThread):
 
 
 class RectSelectionLabel(QLabel):
-    """可框选的图片显示控件，使用橡皮筋绘制选区"""
+    """可框选的图片显示控件，支持缩放、平移和边缘自动滚动"""
     rect_finished = Signal(QRect)
     rect_removed = Signal(int)  # 发送被删除矩形的索引
 
@@ -78,18 +78,43 @@ class RectSelectionLabel(QLabel):
         super().__init__(parent)
         self.setAlignment(Qt.AlignCenter)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setMouseTracking(True)  # 启用鼠标追踪
+        
         self._pix: QPixmap | None = None
         self._display_size: QSize | None = None
-        self._scale = 1.0
+        self._scale = 1.0  # 显示缩放比例（显示/原图）
         self._origin_img_size: QSize | None = None
         self._rubber_origin: QPoint | None = None
         self._rubber_rect: QRect | None = None
         self._drawing = False
         self._rects: List[QRect] = []
+        
+        # 缩放和平移相关
+        self._zoom_level = 1.0  # 用户缩放级别（1.0 = 适应窗口）
+        self._min_zoom = 0.5
+        self._max_zoom = 5.0
+        self._pan_offset = QPoint(0, 0)  # 平移偏移量
+        self._panning = False  # 是否正在平移
+        self._pan_start = QPoint(0, 0)  # 平移起始点
+        self._last_pan_offset = QPoint(0, 0)  # 上次平移偏移
+        
+        # 边缘自动滚动相关
+        self._edge_scroll_margin = 50  # 边缘触发区域（像素）
+        self._edge_scroll_speed = 15  # 滚动速度（像素/帧）
+        self._scroll_timer = None  # 滚动定时器
+        
+        # 初始化滚动定时器
+        from PySide6.QtCore import QTimer
+        self._scroll_timer = QTimer()
+        self._scroll_timer.timeout.connect(self._on_edge_scroll)
+        self._scroll_timer.setInterval(30)  # 约33fps
 
     def load_image(self, pix: QPixmap, origin_w: int, origin_h: int):
         self._pix = pix
         self._origin_img_size = QSize(origin_w, origin_h)
+        # 重置缩放和平移
+        self._zoom_level = 1.0
+        self._pan_offset = QPoint(0, 0)
         self._update_scaled_pix()
         self._rects.clear()
         self.update()
@@ -97,26 +122,136 @@ class RectSelectionLabel(QLabel):
     def _update_scaled_pix(self):
         if not self._pix:
             return
-        # 根据label大小计算缩放
+        # 根据label大小和缩放级别计算显示大小
         label_w = max(1, self.width())
         label_h = max(1, self.height())
-        scaled = self._pix.scaled(label_w, label_h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        
+        # 先计算适应窗口的基础缩放
+        base_scaled = self._pix.scaled(label_w, label_h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        base_w = base_scaled.width()
+        base_h = base_scaled.height()
+        
+        # 应用用户缩放级别
+        final_w = int(base_w * self._zoom_level)
+        final_h = int(base_h * self._zoom_level)
+        
+        # 缩放图片
+        scaled = self._pix.scaled(final_w, final_h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self._display_size = scaled.size()
+        
         # 计算缩放比例（显示/原图）
-        if self._origin_img_size:
+        if self._origin_img_size and self._origin_img_size.width() > 0:
             self._scale = self._display_size.width() / self._origin_img_size.width()
-        self.setPixmap(scaled)
+        
+        # 限制平移范围
+        self._clamp_pan_offset()
+        
+        # 不再使用setPixmap，改为手动绘制
+        self.update()
+
+    def _clamp_pan_offset(self):
+        """限制平移偏移量，确保图片不会移出可视区域太多"""
+        if not self._display_size:
+            return
+        
+        label_w = self.width()
+        label_h = self.height()
+        img_w = self._display_size.width()
+        img_h = self._display_size.height()
+        
+        # 如果图片小于等于窗口，不允许平移
+        if img_w <= label_w:
+            self._pan_offset.setX(0)
+        else:
+            max_x = (img_w - label_w) // 2 + 50
+            self._pan_offset.setX(max(-max_x, min(max_x, self._pan_offset.x())))
+        
+        if img_h <= label_h:
+            self._pan_offset.setY(0)
+        else:
+            max_y = (img_h - label_h) // 2 + 50
+            self._pan_offset.setY(max(-max_y, min(max_y, self._pan_offset.y())))
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
         self._update_scaled_pix()
 
+    def wheelEvent(self, e):
+        """鼠标滚轮缩放"""
+        if not self._pix:
+            return
+        
+        # 获取鼠标位置（用于以鼠标为中心缩放）
+        mouse_pos = e.position().toPoint()
+        
+        # 计算缩放前鼠标在图片上的位置
+        old_img_pos = self._widget_to_image_pos(mouse_pos)
+        
+        # 计算新的缩放级别
+        delta = e.angleDelta().y()
+        zoom_factor = 1.15 if delta > 0 else 1 / 1.15
+        new_zoom = self._zoom_level * zoom_factor
+        new_zoom = max(self._min_zoom, min(self._max_zoom, new_zoom))
+        
+        if new_zoom != self._zoom_level:
+            self._zoom_level = new_zoom
+            self._update_scaled_pix()
+            
+            # 调整平移偏移，使鼠标位置保持在图片同一点上
+            new_img_pos = self._widget_to_image_pos(mouse_pos)
+            if old_img_pos and new_img_pos:
+                # 计算需要的偏移调整
+                dx = (new_img_pos.x() - old_img_pos.x()) * self._scale
+                dy = (new_img_pos.y() - old_img_pos.y()) * self._scale
+                self._pan_offset = QPoint(
+                    self._pan_offset.x() + int(dx),
+                    self._pan_offset.y() + int(dy)
+                )
+                self._clamp_pan_offset()
+            
+            self.update()
+        
+        e.accept()
+
+    def _widget_to_image_pos(self, widget_pos: QPoint) -> QPoint | None:
+        """将控件坐标转换为图片坐标"""
+        if not self._display_size or self._scale <= 0:
+            return None
+        
+        # 计算图片在控件中的位置
+        img_x = (self.width() - self._display_size.width()) // 2 - self._pan_offset.x()
+        img_y = (self.height() - self._display_size.height()) // 2 - self._pan_offset.y()
+        
+        # 计算相对于图片的位置
+        rel_x = widget_pos.x() - img_x
+        rel_y = widget_pos.y() - img_y
+        
+        # 转换为原图坐标
+        img_x = int(rel_x / self._scale)
+        img_y = int(rel_y / self._scale)
+        
+        return QPoint(img_x, img_y)
+
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton and self._pix is not None:
-            self._drawing = True
-            self._rubber_origin = e.position().toPoint()
-            self._rubber_rect = QRect(self._rubber_origin, QSize(0, 0))
-            self.update()
+            # 检查是否按住Ctrl键进行平移
+            if e.modifiers() & Qt.ControlModifier:
+                self._panning = True
+                self._pan_start = e.position().toPoint()
+                self._last_pan_offset = QPoint(self._pan_offset)
+                self.setCursor(Qt.ClosedHandCursor)
+            else:
+                # 开始框选
+                self._drawing = True
+                self._rubber_origin = e.position().toPoint()
+                self._rubber_rect = QRect(self._rubber_origin, QSize(0, 0))
+                self.update()
+        elif e.button() == Qt.MiddleButton and self._pix is not None:
+            # 中键平移
+            self._panning = True
+            self._pan_start = e.position().toPoint()
+            self._last_pan_offset = QPoint(self._pan_offset)
+            self.setCursor(Qt.ClosedHandCursor)
         elif e.button() == Qt.RightButton and self._pix is not None:
             # 右键删除矩形
             click_pos = e.position().toPoint()
@@ -129,29 +264,181 @@ class RectSelectionLabel(QLabel):
         super().mousePressEvent(e)
 
     def mouseMoveEvent(self, e):
-        if self._drawing and self._rubber_origin is not None:
-            self._rubber_rect = QRect(self._rubber_origin, e.position().toPoint()).normalized()
+        pos = e.position().toPoint()
+        
+        if self._panning:
+            # 平移模式
+            delta = pos - self._pan_start
+            self._pan_offset = QPoint(
+                self._last_pan_offset.x() - delta.x(),
+                self._last_pan_offset.y() - delta.y()
+            )
+            self._clamp_pan_offset()
             self.update()
+        elif self._drawing and self._rubber_origin is not None:
+            # 框选模式
+            self._rubber_rect = QRect(self._rubber_origin, pos).normalized()
+            self.update()
+            
+            # 检查是否需要边缘滚动
+            self._check_edge_scroll(pos)
+        else:
+            # 更新鼠标样式
+            if e.modifiers() & Qt.ControlModifier:
+                self.setCursor(Qt.OpenHandCursor)
+            else:
+                self.setCursor(Qt.CrossCursor)
+        
         super().mouseMoveEvent(e)
 
-    def mouseReleaseEvent(self, e):
-        if e.button() == Qt.LeftButton and self._drawing:
-            self._drawing = False
-            if self._rubber_rect and self._rubber_rect.width() > 5 and self._rubber_rect.height() > 5:
-                # 记录显示坐标的矩形
-                self._rects.append(self._rubber_rect)
-                self.rect_finished.emit(self._rubber_rect)
-            self._rubber_rect = None
+    def _check_edge_scroll(self, pos: QPoint):
+        """检查是否需要边缘自动滚动"""
+        if not self._drawing or self._zoom_level <= 1.0:
+            self._scroll_timer.stop()
+            return
+        
+        # 检查是否在边缘区域
+        margin = self._edge_scroll_margin
+        at_edge = (pos.x() < margin or pos.x() > self.width() - margin or
+                   pos.y() < margin or pos.y() > self.height() - margin)
+        
+        if at_edge:
+            if not self._scroll_timer.isActive():
+                self._scroll_timer.start()
+        else:
+            self._scroll_timer.stop()
+
+    def _on_edge_scroll(self):
+        """边缘滚动定时器回调"""
+        if not self._drawing:
+            self._scroll_timer.stop()
+            return
+        
+        # 获取当前鼠标位置
+        cursor_pos = self.mapFromGlobal(QCursor.pos())
+        
+        margin = self._edge_scroll_margin
+        speed = self._edge_scroll_speed
+        
+        dx, dy = 0, 0
+        
+        # 计算滚动方向和速度
+        if cursor_pos.x() < margin:
+            dx = -speed * (1 - cursor_pos.x() / margin)
+        elif cursor_pos.x() > self.width() - margin:
+            dx = speed * (1 - (self.width() - cursor_pos.x()) / margin)
+        
+        if cursor_pos.y() < margin:
+            dy = -speed * (1 - cursor_pos.y() / margin)
+        elif cursor_pos.y() > self.height() - margin:
+            dy = speed * (1 - (self.height() - cursor_pos.y()) / margin)
+        
+        if dx != 0 or dy != 0:
+            # 更新平移偏移
+            self._pan_offset = QPoint(
+                self._pan_offset.x() + int(dx),
+                self._pan_offset.y() + int(dy)
+            )
+            self._clamp_pan_offset()
+            
+            # 更新框选矩形的起点（保持相对位置）
+            if self._rubber_origin:
+                self._rubber_origin = QPoint(
+                    self._rubber_origin.x() - int(dx),
+                    self._rubber_origin.y() - int(dy)
+                )
+            
+            # 更新框选矩形
+            if self._rubber_rect and self._rubber_origin:
+                self._rubber_rect = QRect(self._rubber_origin, cursor_pos).normalized()
+            
             self.update()
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            if self._panning:
+                self._panning = False
+                self.setCursor(Qt.CrossCursor)
+            elif self._drawing:
+                self._drawing = False
+                self._scroll_timer.stop()
+                if self._rubber_rect and self._rubber_rect.width() > 5 and self._rubber_rect.height() > 5:
+                    # 记录显示坐标的矩形
+                    self._rects.append(self._rubber_rect)
+                    self.rect_finished.emit(self._rubber_rect)
+                self._rubber_rect = None
+                self.update()
+        elif e.button() == Qt.MiddleButton:
+            self._panning = False
+            self.setCursor(Qt.CrossCursor)
         super().mouseReleaseEvent(e)
+    
+    def reset_zoom(self):
+        """重置缩放和平移"""
+        self._zoom_level = 1.0
+        self._pan_offset = QPoint(0, 0)
+        self._update_scaled_pix()
+        self.update()
+    
+    def mouseDoubleClickEvent(self, e):
+        """双击重置缩放"""
+        if e.button() == Qt.LeftButton and self._pix is not None:
+            self.reset_zoom()
+        super().mouseDoubleClickEvent(e)
+    
+    def keyPressEvent(self, e):
+        """键盘快捷键"""
+        if e.key() == Qt.Key_0 or e.key() == Qt.Key_Home:
+            # 按0或Home键重置缩放
+            self.reset_zoom()
+        elif e.key() == Qt.Key_Plus or e.key() == Qt.Key_Equal:
+            # 按+键放大
+            self._zoom_level = min(self._max_zoom, self._zoom_level * 1.2)
+            self._update_scaled_pix()
+        elif e.key() == Qt.Key_Minus:
+            # 按-键缩小
+            self._zoom_level = max(self._min_zoom, self._zoom_level / 1.2)
+            self._update_scaled_pix()
+        else:
+            super().keyPressEvent(e)
 
     def paintEvent(self, e):
-        super().paintEvent(e)
-        if not self._pix:
+        # 不调用super().paintEvent()，完全自定义绘制
+        if not self._pix or not self._display_size:
+            super().paintEvent(e)
             return
+        
         painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        # 填充背景
+        painter.fillRect(self.rect(), self.palette().window())
+        
+        # 计算图片绘制位置（居中 + 平移偏移）
+        img_x = (self.width() - self._display_size.width()) // 2 - self._pan_offset.x()
+        img_y = (self.height() - self._display_size.height()) // 2 - self._pan_offset.y()
+        
+        # 绘制缩放后的图片
+        scaled_pix = self._pix.scaled(
+            self._display_size.width(), 
+            self._display_size.height(),
+            Qt.KeepAspectRatio, 
+            Qt.SmoothTransformation
+        )
+        painter.drawPixmap(img_x, img_y, scaled_pix)
+        
+        # 绘制缩放提示（当缩放不为1时）
+        if self._zoom_level != 1.0:
+            from PySide6.QtGui import QFont, QColor
+            font = QFont()
+            font.setPointSize(10)
+            painter.setFont(font)
+            painter.setPen(QColor(100, 100, 100))
+            zoom_text = f"缩放: {self._zoom_level:.1f}x (滚轮缩放, Ctrl+拖动/中键平移, 双击重置)"
+            painter.drawText(10, 20, zoom_text)
         
         # 绘制已存在的矩形
+        from PySide6.QtGui import QFont, QBrush, QColor
         for idx, r in enumerate(self._rects):
             # 设置框的颜色（第1个框用红色，其他用绿色）
             if idx == 0:
@@ -165,7 +452,6 @@ class RectSelectionLabel(QLabel):
             label_text = str(idx + 1)
             
             # 设置字体和颜色
-            from PySide6.QtGui import QFont, QBrush, QColor
             font = QFont()
             font.setPointSize(14)
             font.setBold(True)
@@ -202,17 +488,20 @@ class RectSelectionLabel(QLabel):
             painter.drawRect(self._rubber_rect)
 
     def display_to_image_rect(self, r: QRect) -> QRect:
-        """将显示坐标矩形转换为原图坐标矩形"""
-        if self._scale <= 0:
+        """将显示坐标矩形转换为原图坐标矩形（考虑缩放和平移）"""
+        if self._scale <= 0 or not self._display_size:
             return QRect()
-        # 计算label居中造成的偏移
-        off_x = (self.width() - (self._display_size.width() if self._display_size else 0)) // 2
-        off_y = (self.height() - (self._display_size.height() if self._display_size else 0)) // 2
+        # 计算图片在控件中的位置（居中 + 平移偏移）
+        off_x = (self.width() - self._display_size.width()) // 2 - self._pan_offset.x()
+        off_y = (self.height() - self._display_size.height()) // 2 - self._pan_offset.y()
+        
+        # 计算相对于图片的位置
         x = max(0, r.x() - off_x)
         y = max(0, r.y() - off_y)
         w = r.width()
         h = r.height()
-        # 反缩放
+        
+        # 反缩放到原图坐标
         ix = int(x / self._scale)
         iy = int(y / self._scale)
         iw = int(w / self._scale)
@@ -220,7 +509,7 @@ class RectSelectionLabel(QLabel):
         return QRect(ix, iy, iw, ih)
     
     def image_to_display_rect(self, ix: int, iy: int, iw: int, ih: int) -> QRect:
-        """将原图坐标矩形转换为显示坐标矩形"""
+        """将原图坐标矩形转换为显示坐标矩形（考虑缩放和平移）"""
         if self._scale <= 0 or not self._display_size:
             return QRect()
         # 缩放到显示大小
@@ -228,9 +517,9 @@ class RectSelectionLabel(QLabel):
         y = int(iy * self._scale)
         w = int(iw * self._scale)
         h = int(ih * self._scale)
-        # 计算居中偏移
-        off_x = (self.width() - self._display_size.width()) // 2
-        off_y = (self.height() - self._display_size.height()) // 2
+        # 计算图片在控件中的位置（居中 + 平移偏移）
+        off_x = (self.width() - self._display_size.width()) // 2 - self._pan_offset.x()
+        off_y = (self.height() - self._display_size.height()) // 2 - self._pan_offset.y()
         return QRect(x + off_x, y + off_y, w, h)
     
     def set_rects(self, rects: List[QRect]):
@@ -359,6 +648,14 @@ class MainWindow(QMainWindow):
         # 添加分隔符
         tb.addSeparator()
         
+        # 添加重置缩放按钮
+        act_reset_zoom = QAction("🔍 重置缩放", self)
+        act_reset_zoom.triggered.connect(self._reset_image_zoom)
+        tb.addAction(act_reset_zoom)
+        
+        # 添加分隔符
+        tb.addSeparator()
+        
         # 添加下载引擎按钮
         act_download_engine = QAction("⬇️ 下载引擎", self)
         act_download_engine.triggered.connect(lambda: self._show_download_dialog())
@@ -403,6 +700,7 @@ class MainWindow(QMainWindow):
         left = QWidget()
         left_v = QVBoxLayout(left)
         self.image_label = RectSelectionLabel()
+        self.image_label.setFocusPolicy(Qt.StrongFocus)  # 允许接收键盘焦点
         left_v.addWidget(self.image_label, stretch=1)
         self.image_label.rect_finished.connect(self.on_rect_finished)
         self.image_label.rect_removed.connect(self.on_rect_removed)
@@ -724,6 +1022,12 @@ class MainWindow(QMainWindow):
         else:
             self.engine_status_label.setText("引擎: 未初始化")
             self.engine_status_label.setStyleSheet("color: gray; font-weight: bold;")
+    
+    def _reset_image_zoom(self):
+        """重置图片缩放"""
+        if hasattr(self, 'image_label'):
+            self.image_label.reset_zoom()
+            self.statusBar().showMessage("已重置缩放", 2000)
     
     def _update_cache_status_label(self):
         """更新缓存状态标签"""

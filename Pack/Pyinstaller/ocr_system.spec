@@ -88,7 +88,6 @@ datas = [
     (os.path.join(project_root, 'config.py.example'), '.'),
     
     # Configuration wizard for first-run setup
-    (os.path.join(project_root, 'config_wizard.py'), '.'),
     
     # Environment template
     (os.path.join(project_root, '.env.example'), '.'),
